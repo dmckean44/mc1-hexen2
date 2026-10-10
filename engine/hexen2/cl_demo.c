@@ -24,6 +24,26 @@
 
 static void CL_FinishTimeDemo (void);
 
+#ifdef MC1
+#include "mc1.h"
+
+/* cycle count markers for the benchmark scripts and a1time */
+static void CL_ProfMark (const char *tag)
+{
+	unsigned	hi1, lo, hi2;
+
+	do
+	{
+		hi1 = GET_MMIO (CLKCNTHI);
+		lo = GET_MMIO (CLKCNTLO);
+		hi2 = GET_MMIO (CLKCNTHI);
+	} while (hi1 != hi2);
+	Con_Printf ("%s cycles=%llu\n", tag, ((unsigned long long)hi1 << 32) | lo);
+}
+#else
+#define CL_ProfMark(tag)	do {} while (0)
+#endif
+
 /* vars for the mission pack intro */
 qboolean	intro_playing = false;
 #if 0
@@ -123,7 +143,10 @@ static int CL_GetDemoMessage (void)
 		// if this is the second frame, grab the real td_starttime
 		// so the bogus time on the first frame doesn't count
 			if (host_framecount == cls.td_startframe + 1)
+			{
 				cls.td_starttime = realtime;
+				CL_ProfMark ("TIMEDEMO_START");
+			}
 		}
 		else if (/* cl.time > 0 && */ cl.time <= cl.mtime[0])
 		{
@@ -442,6 +465,7 @@ static void CL_FinishTimeDemo (void)
 	float	time;
 
 	cls.timedemo = false;
+	CL_ProfMark ("TIMEDEMO_END");
 
 // the first frame didn't count
 	frames = (host_framecount - cls.td_startframe) - 1;
@@ -449,6 +473,8 @@ static void CL_FinishTimeDemo (void)
 	if (!time)
 		time = 1;
 	Con_Printf ("%i frames %5.1f seconds %5.1f fps\n", frames, time, frames/time);
+	if (COM_CheckParm ("-tdquit"))
+		Sys_Quit ();
 }
 
 /*

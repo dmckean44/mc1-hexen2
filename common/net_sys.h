@@ -49,6 +49,11 @@
 #define	SA_FAM_OFFSET	0
 #endif	/* BSD, sockaddr */
 
+/* MC1: no sockets, only the loopback driver */
+#if defined(PLATFORM_MC1)
+typedef int	sys_socket_t;
+#endif
+
 /* unix includes and compatibility macros */
 #if defined(PLATFORM_UNIX) || defined(PLATFORM_RISCOS) || defined(PLATFORM_HAIKU)
 

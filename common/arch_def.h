@@ -78,6 +78,12 @@
 #	define	PLATFORM_RISCOS		1
 #   endif
 
+#elif defined(__MRISC32__)
+
+#   if !defined(PLATFORM_MC1)
+#	define	PLATFORM_MC1		1
+#   endif
+
 #else	/* here goes the unix platforms */
 
 #if defined(__unix) || defined(__unix__) || defined(unix)	|| \
@@ -169,6 +175,8 @@
 #	define	PLATFORM_STRING	"GNU/Hurd"
 #elif defined(PLATFORM_UNIX)
 #	define	PLATFORM_STRING	"Unix"
+#elif defined(PLATFORM_MC1)
+#	define	PLATFORM_STRING	"MC1"
 #else
 #	define	PLATFORM_STRING	"Unknown"
 #	warning "Platform is UNKNOWN."
