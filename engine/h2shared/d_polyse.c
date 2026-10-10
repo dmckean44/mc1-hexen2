@@ -1219,7 +1219,7 @@ D_PolysetSetUpForLineScan
 static void D_PolysetSetUpForLineScan(fixed8_t startvertu, fixed8_t startvertv,
 					fixed8_t endvertu, fixed8_t endvertv)
 {
-	double		dm, dn;
+	qdouble_t	dm, dn;
 	int		tm, tn;
 	adivtab_t	*ptemp;
 
@@ -1240,8 +1240,8 @@ static void D_PolysetSetUpForLineScan(fixed8_t startvertu, fixed8_t startvertv,
 	}
 	else
 	{
-		dm = (double)tm;
-		dn = (double)tn;
+		dm = (qdouble_t)tm;
+		dn = (qdouble_t)tn;
 
 		FloorDivMod (dm, dn, &ubasestep, &erroradjustup);
 
@@ -1280,8 +1280,8 @@ static void D_PolysetCalcGradients (int skin_width)
 // very visible, overflow is very unlikely, because of ambient lighting
 	t0 = r_p0[4] - r_p2[4];
 	t1 = r_p1[4] - r_p2[4];
-	r_lstepx = (int)ceil((t1 * p01_minus_p21 - t0 * p11_minus_p21) * xstepdenominv);
-	r_lstepy = (int)ceil((t1 * p00_minus_p20 - t0 * p10_minus_p20) * ystepdenominv);
+	r_lstepx = (int)ceilf((t1 * p01_minus_p21 - t0 * p11_minus_p21) * xstepdenominv);
+	r_lstepy = (int)ceilf((t1 * p00_minus_p20 - t0 * p10_minus_p20) * ystepdenominv);
 
 	t0 = r_p0[2] - r_p2[2];
 	t1 = r_p1[2] - r_p2[2];

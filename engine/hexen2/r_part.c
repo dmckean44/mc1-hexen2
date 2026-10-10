@@ -1552,6 +1552,7 @@ void R_UpdateParticles (void)
 	float		frametime;
 	float		vel0, vel1, vel2;
 	float		colindex;
+	float		now;
 	vec3_t		diff;
 //	vec3_t		save_org;
 //	float		speed;
@@ -1561,6 +1562,7 @@ void R_UpdateParticles (void)
 		return;
 
 	frametime = cl.time - cl.oldtime;
+	now = cl.time;
 //	Con_Printf("%10.5f\n", frametime);
 	time4 = frametime * 20;
 	time3 = frametime * 15;
@@ -1574,7 +1576,7 @@ void R_UpdateParticles (void)
 	for ( ;; )
 	{
 		kill = active_particles;
-		if (kill && kill->die < cl.time)
+		if (kill && kill->die < now)
 		{
 			active_particles = kill->next;
 			kill->next = free_particles;
@@ -1589,7 +1591,7 @@ void R_UpdateParticles (void)
 		for ( ;; )
 		{
 			kill = p->next;
-			if (kill && kill->die < cl.time)
+			if (kill && kill->die < now)
 			{
 				p->next = kill->next;
 				kill->next = free_particles;

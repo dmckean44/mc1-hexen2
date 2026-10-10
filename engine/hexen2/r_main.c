@@ -865,7 +865,7 @@ static int R_BmodelCheckBBox (qmodel_t *clmodel, float *minmaxs)
 {
 	int		i, *pindex, clipflags;
 	vec3_t		acceptpt, rejectpt;
-	double		d;
+	qdouble_t	d;
 
 	clipflags = 0;
 

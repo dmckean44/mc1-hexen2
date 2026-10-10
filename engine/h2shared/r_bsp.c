@@ -449,7 +449,7 @@ static void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 	mplane_t	*plane;
 	msurface_t	*surf, **mark;
 	mleaf_t		*pleaf;
-	double		d, dot;
+	qdouble_t	d, dot;
 
 	if (node->contents == CONTENTS_SOLID)
 		return;		// solid

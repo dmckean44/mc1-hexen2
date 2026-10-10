@@ -276,10 +276,10 @@ numer and denom, both of which should contain no fractional part. The
 quotient must fit in 32 bits.
 ====================
 */
-void FloorDivMod (double numer, double denom, int *quotient, int *rem)
+void FloorDivMod (qdouble_t numer, qdouble_t denom, int *quotient, int *rem)
 {
 	int		q, r;
-	double	x;
+	qdouble_t	x;
 
 #ifndef PARANOID
 	if (denom <= 0.0)
@@ -292,18 +292,18 @@ void FloorDivMod (double numer, double denom, int *quotient, int *rem)
 
 	if (numer >= 0.0)
 	{
-		x = floor(numer / denom);
+		x = q_floor(numer / denom);
 		q = (int)x;
-		r = (int)floor(numer - (x * denom));
+		r = (int)q_floor(numer - (x * denom));
 	}
 	else
 	{
 	/* perform operations with positive values,
 	 * and fix mod to make floor-based
 	 */
-		x = floor(-numer / denom);
+		x = q_floor(-numer / denom);
 		q = -(int)x;
-		r = (int)floor(-numer - (x * denom));
+		r = (int)q_floor(-numer - (x * denom));
 		if (r != 0)
 		{
 			q--;

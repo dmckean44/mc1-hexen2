@@ -586,6 +586,10 @@ static char	old_bgmtype[20];	// S.A
 
 void M_Menu_Main_f (void)
 {
+	/* hexen.rc opens the menu after the command line, which would cover a timedemo */
+	if (cls.timedemo)
+		return;
+
 	// Deactivate the mouse when the menus are drawn - S.A.
 	menu_disabled_mouse = true;
 	if (modestate == MS_WINDOWED)

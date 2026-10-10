@@ -241,8 +241,8 @@ loc0: // surgeon: optimized recursion
 		/* added double casts so that 64 bit/sse2 builds' precision
 		 * matches that of x87 floating point. took from QuakeSpasm,
 		 * patch by Eric Wasylishen.  */
-		s = DotProductDBL(mid, tex->vecs[0]) + (double)tex->vecs[0][3];
-		t = DotProductDBL(mid, tex->vecs[1]) + (double)tex->vecs[1][3];
+		s = DotProductDBL(mid, tex->vecs[0]) + (qdouble_t)tex->vecs[0][3];
+		t = DotProductDBL(mid, tex->vecs[1]) + (qdouble_t)tex->vecs[1][3];
 
 		if (s < surf->texturemins[0] || t < surf->texturemins[1])
 			continue;

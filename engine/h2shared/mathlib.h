@@ -81,9 +81,9 @@ extern vec3_t vec3_origin;
 #define VectorCompare(v1,v2)	(((v1)[0] == (v2)[0]) && ((v1)[1] == (v2)[1]) && ((v1)[2] == (v2)[2]))
 #define DotProduct(x,y)		((x)[0] * (y)[0] + (x)[1] * (y)[1] + (x)[2] * (y)[2])
 #define VectorLength(a)		sqrt(DotProduct((a),(a)))
-#define DotProductDBL(x,y)	((double)(x)[0] * (double)(y)[0] + \
-				 (double)(x)[1] * (double)(y)[1] + \
-				 (double)(x)[2] * (double)(y)[2])
+#define DotProductDBL(x,y)	((qdouble_t)(x)[0] * (qdouble_t)(y)[0] + \
+				 (qdouble_t)(x)[1] * (qdouble_t)(y)[1] + \
+				 (qdouble_t)(x)[2] * (qdouble_t)(y)[2])
 #define VectorLengthDBL(a)	sqrt(DotProductDBL((a), (a)))
 #define VectorLengthFast(a)	Q_sqrt(DotProduct((a),(a)))
 
@@ -190,7 +190,7 @@ int Q_log2(int val);
 void R_ConcatRotations (float in1[3][3], float in2[3][3], float out[3][3]);
 void R_ConcatTransforms (float in1[3][4], float in2[3][4], float out[3][4]);
 
-void FloorDivMod (double numer, double denom, int *quotient, int *rem);
+void FloorDivMod (qdouble_t numer, qdouble_t denom, int *quotient, int *rem);
 int GreatestCommonDivisor (int i1, int i2);
 
 void AngleVectors (vec3_t angles, vec3_t forward, vec3_t right, vec3_t up);

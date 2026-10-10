@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(mc1-hexen2 LANGUAGES C)
+project(mc1-hexen2 LANGUAGES C ASM)
 
 set(SRC_NAMES
     d_edge d_fill d_init d_modech d_part d_polyse d_scan d_sky d_sprite d_surf d_vars d_zpoint
@@ -30,12 +30,19 @@ foreach(name ${SRC_NAMES})
 endforeach()
 unset(path CACHE)
 
+option(MR32_ASM "Use the MRISC32 assembler routines" ON)
+
 list(APPEND DEFS -DDEMOBUILD -D_NO_SOUND -D_NO_MIDIDRV -D_NO_CDAUDIO -DNDEBUG=1)
 
 if(MC1)
   list(APPEND SRCS sys_mc1.c net_mc1.c ../h2shared/vid_mc1.c ../h2shared/in_mc1.c)
+  if(MR32_ASM)
+    list(APPEND SRCS ../h2shared/d_scan_mr32.s)
+  else()
+    list(APPEND DEFS -DNO_MR32_ASM)
+  endif()
   list(APPEND DEFS -DMC1)
-  list(APPEND OPTS -mcmodel=small -flto)
+  list(APPEND OPTS -mcmodel=small -flto -fsingle-precision-constant)
   list(APPEND LIBS m -flto)
   if(MC1SDK_HOME)
     message("Building for running on an MC1 computer.")

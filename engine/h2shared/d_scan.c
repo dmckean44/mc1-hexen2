@@ -449,6 +449,7 @@ void Turbulent8 (surf_t *s)
 D_DrawSpans8
 =============
 */
+#if !defined(__MRISC32_HARD_FLOAT__) || defined(NO_MR32_ASM)	/* d_scan_mr32.s */
 void D_DrawSpans8 (espan_t *pspan)
 {
 	int				count, spancount;
@@ -574,6 +575,7 @@ void D_DrawSpans8 (espan_t *pspan)
 
 	} while ((pspan = pspan->pnext) != NULL);
 }
+#endif
 
 
 void D_DrawSpans8T (espan_t *pspan)
@@ -723,6 +725,7 @@ void D_DrawSpans8T (espan_t *pspan)
 D_DrawZSpans
 =============
 */
+#if !defined(__MRISC32_HARD_FLOAT__) || defined(NO_MR32_ASM)	/* d_scan_mr32.s */
 void D_DrawZSpans (espan_t *pspan)
 {
 	int			count, doublecount, izistep;
@@ -775,6 +778,7 @@ void D_DrawZSpans (espan_t *pspan)
 
 	} while ((pspan = pspan->pnext) != NULL);
 }
+#endif
 
 
 /*

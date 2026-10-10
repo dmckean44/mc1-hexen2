@@ -160,6 +160,15 @@ typedef double	vec_t;
 typedef float	vec_t;
 #endif	/* DOUBLEVEC_T */
 typedef vec_t	vec3_t[3];
+
+/* where the engine wants extra precision; MRISC32 has no double hardware */
+#if defined(__MRISC32__)
+typedef float	qdouble_t;
+#define	q_floor		floorf
+#else
+typedef double	qdouble_t;
+#define	q_floor		floor
+#endif
 typedef vec_t	vec4_t[4];
 typedef vec_t	vec5_t[5];
 typedef int	fixed4_t;

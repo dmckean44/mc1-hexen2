@@ -67,6 +67,7 @@ static qboolean	fs_toggle_works = true;
 viddef_t	vid;		// global video state
 // cvar vid_mode must be set before calling VID_SetMode, VID_ChangeVideoMode or VID_Restart_f
 static cvar_t	vid_mode = {"vid_mode", "0", CVAR_NONE};
+static cvar_t	vid_dumpframes = {"vid_dumpframes", "0", CVAR_NONE};
 static cvar_t	vid_config_glx = {"vid_config_glx", "640", CVAR_ARCHIVE};
 static cvar_t	vid_config_gly = {"vid_config_gly", "480", CVAR_ARCHIVE};
 static cvar_t	vid_config_swx = {"vid_config_swx", "320", CVAR_ARCHIVE};
@@ -701,6 +702,7 @@ void VID_Init (const unsigned char *palette)
 	Cvar_RegisterVariable (&vid_mode);
 	Cvar_RegisterVariable (&_enable_mouse);
 	Cvar_RegisterVariable (&vid_showload);
+	Cvar_RegisterVariable (&vid_dumpframes);
 
 	Cmd_AddCommand ("vid_listmodes", VID_ListModes_f);
 	Cmd_AddCommand ("vid_nummodes", VID_NumModes_f);
@@ -849,9 +851,38 @@ static void FlipScreen (vrect_t *rects)
 	}
 }
 
+/* same format as vid_mc1.c: width x height 8-bit pixels, then the palette */
+static unsigned	frame_count, frames_dumped;
+
+static void VID_DumpFrame (void)
+{
+	char	name[MAX_OSPATH];
+	FILE	*f;
+	int	y;
+
+	q_snprintf (name, sizeof(name), "%s/frames/f%05u.raw", host_parms->userdir, frame_count);
+	f = fopen (name, "wb");
+	if (!f)
+	{
+		Sys_mkdir (va("%s/frames", host_parms->userdir), false);
+		f = fopen (name, "wb");
+	}
+	if (!f)
+		return;
+	for (y = 0; y < (int)vid.height; y++)
+		fwrite (vid.buffer + y * vid.rowbytes, 1, vid.width, f);
+	fwrite (vid_curpal, 1, sizeof(vid_curpal), f);
+	fclose (f);
+	frames_dumped++;
+}
+
 void VID_Update (vrect_t *rects)
 {
 	vrect_t		rect;
+
+	frame_count++;
+	if (frames_dumped < (unsigned)vid_dumpframes.integer)
+		VID_DumpFrame ();
 
 	if (palette_changed)
 	{
