@@ -1333,6 +1333,66 @@ void InitGel (byte *palette)
 D_PolysetDrawSpans8
 ================
 */
+#if defined(__MRISC32_VECTOR_OPS__) && !defined(NO_MR32_ASM)
+/*
+ * Element k of a span reads texel ((s + k*sstep) >> 16) + ((t + k*tstep) >> 16) * skinwidth
+ * of the skin, with s and t the span's fractions; that is where the scalar loop's
+ * whole and fraction steps take it. From the Quake II port's R_PolysetDrawSpanVec.
+ */
+static void D_PolysetDrawSpanVec (byte *pdest, short *pz, const byte *ptex, int count,
+				  int s, int t, int light, int zi)
+{
+	const int	lightmask = 0xff00;
+	int		sstepN, tstepN, lstepN, zstepN;
+
+	__asm__ volatile(
+		"    getsr   vl, #0x10\n"
+		"    mul     %[sstepN], %[sstep], vl\n"
+		"    mul     %[tstepN], %[tstep], vl\n"
+		"    mul     %[lstepN], %[lstep], vl\n"
+		"    mul     %[zstepN], %[zstep], vl\n"
+		"1:\n"
+		"    min     vl, vl, %[count]\n"
+		"    sub     %[count], %[count], vl\n"
+		"    ldea    v1, [%[s], %[sstep]]\n"
+		"    ldea    v2, [%[t], %[tstep]]\n"
+		"    asr     v1, v1, #16\n"
+		"    asr     v2, v2, #16\n"
+		"    madd    v1, v2, %[skinwidth]\n"
+		"    ldub    v1, [%[ptex], v1]\n"
+		"    ldea    v2, [%[light], %[lstep]]\n"
+		"    and     v2, v2, %[lightmask]\n"
+		"    add     v1, v1, v2\n"
+		"    ldub    v1, [%[colormap], v1]\n"
+		"    ldea    v2, [%[zi], %[zstep]]\n"
+		"    asr     v2, v2, #16\n"
+		"    ldh     v3, [%[pz], #2]\n"
+		"    sle     v4, v3, v2\n"
+		"    max     v3, v3, v2\n"
+		"    sth     v3, [%[pz], #2]\n"
+		"    ldub    v2, [%[pdest], #1]\n"
+		"    sel     v4, v1, v2\n"
+		"    stb     v4, [%[pdest], #1]\n"
+		"    add     %[s], %[s], %[sstepN]\n"
+		"    add     %[t], %[t], %[tstepN]\n"
+		"    add     %[light], %[light], %[lstepN]\n"
+		"    add     %[zi], %[zi], %[zstepN]\n"
+		"    ldea    %[pz], [%[pz], vl*2]\n"
+		"    ldea    %[pdest], [%[pdest], vl]\n"
+		"    bnz     %[count], 1b\n"
+		: [pdest] "+r"(pdest), [pz] "+r"(pz), [count] "+r"(count),
+		  [s] "+r"(s), [t] "+r"(t), [light] "+r"(light), [zi] "+r"(zi),
+		  [sstepN] "=&r"(sstepN), [tstepN] "=&r"(tstepN),
+		  [lstepN] "=&r"(lstepN), [zstepN] "=&r"(zstepN)
+		: [ptex] "r"(ptex), [colormap] "r"(acolormap),
+		  [skinwidth] "r"(r_affinetridesc.skinwidth), [lightmask] "r"(lightmask),
+		  [sstep] "r"(r_sstepx), [tstep] "r"(r_tstepx),
+		  [lstep] "r"(r_lstepx), [zstep] "r"(r_zistepx)
+		: "vl", "v1", "v2", "v3", "v4", "memory"
+	);
+}
+#endif
+
 static void D_PolysetDrawSpans8 (spanpackage_t *pspanpackage)
 {
 	int		lcount;
@@ -1368,6 +1428,11 @@ static void D_PolysetDrawSpans8 (spanpackage_t *pspanpackage)
 			llight = pspanpackage->light;
 			lzi = pspanpackage->zi;
 
+#if defined(__MRISC32_VECTOR_OPS__) && !defined(NO_MR32_ASM)
+			D_PolysetDrawSpanVec (lpdest, lpz, lptex, lcount, lsfrac, ltfrac, llight, lzi);
+			pspanpackage++;
+			continue;
+#endif
 			do
 			{
 				if ((lzi >> 16) >= *lpz)
