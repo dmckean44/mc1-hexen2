@@ -34,10 +34,11 @@ viddef_t	vid;
 cvar_t		_enable_mouse = {"_enable_mouse", "1", CVAR_ARCHIVE};
 static cvar_t	vid_dumpframes = {"vid_dumpframes", "0", CVAR_NONE};
 
-static byte	*vcp;
+/* two pages, each with its own VCP; we draw into one while the other is shown */
+static byte	*vcp[2];
 static byte	*palette_vcp;
-static byte	*framebuffer;
-static byte	*vbuffer;
+static byte	*framebuffer[2];
+static int	back_page;
 static unsigned	frame_count;
 static unsigned	frames_dumped;
 static unsigned char	curpal[256*3];
@@ -56,16 +57,15 @@ static byte *VRAM_Alloc (size_t bytes)
 	return ptr;
 }
 
-static void VID_CreateVCP (void)
+static void VID_CreateVCP (int page)
 {
 	unsigned	native_width = GET_MMIO (VIDWIDTH);
 	unsigned	native_height = GET_MMIO (VIDHEIGHT);
 	unsigned	xincr = ((BASEWIDTH - 1) << 16) / (native_width - 1);
 	unsigned	yincr = ((native_height - 1) << 16) / (BASEHEIGHT - 1);
-	unsigned	*p = (unsigned *)vcp;
-	unsigned	*pal;
+	unsigned	*p = (unsigned *)vcp[page];
 	unsigned	y = 0;
-	unsigned	addr = (unsigned)framebuffer;
+	unsigned	addr = (unsigned)framebuffer[page];
 	int		i;
 
 	*p++ = VCP_SETREG (VCR_XINCR, xincr);
@@ -80,14 +80,11 @@ static void VID_CreateVCP (void)
 		y += yincr;
 	}
 	*p = VCP_WAITY (32767);
+}
 
-	pal = (unsigned *)palette_vcp;
-	pal[0] = VCP_SETPAL (0, 256);
-	pal[257] = VCP_RTS;
-
-	/* layer 1 runs our VCP, layer 2 does nothing */
-	*((unsigned *)0x40000010) = VCP_JMP (vcp);
-	*((unsigned *)0x40000020) = VCP_WAITY (32767);
+static void VID_ShowPage (int page)
+{
+	*((unsigned *)0x40000010) = VCP_JMP (vcp[page]);
 }
 
 void VID_SetPalette (const unsigned char *palette)
@@ -118,30 +115,37 @@ void VID_Init (const unsigned char *palette)
 	Cvar_RegisterVariable (&_enable_mouse);
 	Cvar_RegisterVariable (&vid_dumpframes);
 
-	vcp = VRAM_Alloc ((5 + BASEHEIGHT * 2) * sizeof(unsigned));
+	vcp[0] = VRAM_Alloc ((5 + BASEHEIGHT * 2) * sizeof(unsigned));
+	vcp[1] = VRAM_Alloc ((5 + BASEHEIGHT * 2) * sizeof(unsigned));
 	palette_vcp = VRAM_Alloc ((2 + 256) * sizeof(unsigned));
-	framebuffer = VRAM_Alloc (BASEWIDTH * BASEHEIGHT);
-	if (!framebuffer)
+	framebuffer[0] = VRAM_Alloc (BASEWIDTH * BASEHEIGHT);
+	framebuffer[1] = VRAM_Alloc (BASEWIDTH * BASEHEIGHT);
+	if (!framebuffer[1])
 		Sys_Error ("Not enough VRAM");
-	vbuffer = VRAM_Alloc (BASEWIDTH * BASEHEIGHT);
-	if (!vbuffer)
-		vbuffer = (byte *) Hunk_HighAllocName (BASEWIDTH * BASEHEIGHT, "vbuffer");
-
-	VID_CreateVCP ();
+	((unsigned *)palette_vcp)[0] = VCP_SETPAL (0, 256);
+	((unsigned *)palette_vcp)[257] = VCP_RTS;
+	VID_CreateVCP (0);
+	VID_CreateVCP (1);
+	VID_ShowPage (0);
+	back_page = 1;
+	/* layer 2 does nothing */
+	*((unsigned *)0x40000020) = VCP_WAITY (32767);
 
 	vid.width = vid.conwidth = BASEWIDTH;
 	vid.height = vid.conheight = BASEHEIGHT;
 	vid.maxwarpwidth = WARP_WIDTH;
 	vid.maxwarpheight = WARP_HEIGHT;
 	vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
-	vid.numpages = 1;
+	vid.numpages = 2;
 	vid.colormap = host_colormap;
 	vid.fullbright = 256 - LittleLong (*((int *)vid.colormap + 2048));
-	vid.buffer = vid.conbuffer = vid.direct = vbuffer;
+	vid.buffer = vid.conbuffer = vid.direct = framebuffer[back_page];
 	vid.rowbytes = vid.conrowbytes = BASEWIDTH;
 
 	surfcache_size = D_SurfaceCacheForRes (BASEWIDTH, BASEHEIGHT);
-	d_pzbuffer = (short *) Hunk_HighAllocName (BASEWIDTH * BASEHEIGHT * sizeof(*d_pzbuffer), "zbuffer");
+	d_pzbuffer = (short *) VRAM_Alloc (BASEWIDTH * BASEHEIGHT * sizeof(*d_pzbuffer));
+	if (!d_pzbuffer)
+		d_pzbuffer = (short *) Hunk_HighAllocName (BASEWIDTH * BASEHEIGHT * sizeof(*d_pzbuffer), "zbuffer");
 	D_InitCaches (Hunk_HighAllocName (surfcache_size, "surfcache"), surfcache_size);
 
 	VID_SetPalette (palette);
@@ -175,25 +179,13 @@ static void VID_DumpFrame (void)
 
 void VID_Update (vrect_t *rects)
 {
-	vrect_t	*rect;
-
-	for (rect = rects; rect != NULL; rect = rect->pnext)
-	{
-		const byte	*src = vid.buffer + rect->y * BASEWIDTH + rect->x;
-		byte		*dst = framebuffer + rect->y * BASEWIDTH + rect->x;
-		int		i;
-
-		for (i = 0; i < rect->height; ++i)
-		{
-			memcpy (dst, src, rect->width);
-			src += BASEWIDTH;
-			dst += BASEWIDTH;
-		}
-	}
-
 	frame_count++;
 	if (frames_dumped < (unsigned)vid_dumpframes.integer)
 		VID_DumpFrame ();
+
+	VID_ShowPage (back_page);
+	back_page ^= 1;
+	vid.buffer = vid.conbuffer = vid.direct = framebuffer[back_page];
 }
 
 void VID_LockBuffer (void)
