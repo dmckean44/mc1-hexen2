@@ -287,6 +287,211 @@ R_AliasPreparePoints
 General clipped case
 ================
 */
+
+#if defined(__MRISC32_VECTOR_OPS__) && !defined(NO_MR32_ASM)
+#define USE_VERTS_VEC
+/*
+ * R_AliasTransformFinalVert, R_AliasProjectFinalVert and the clip flags of
+ * R_AliasPreparePoints, VL vertices at a time. With unit scales it is also
+ * R_AliasTransformAndProjectFinalVerts (its flags are replaced per triangle).
+ * Z-clipped vertices get projected too; those values are never read.
+ */
+enum {
+	VV_M = 0, VV_LIGHTVEC = 12, VV_SHADE = 15, VV_AMBIENT, VV_ZISCALE, VV_XSCALE, VV_YSCALE,
+	VV_XCENTER, VV_YCENTER, VV_ZCLIP, VV_LEFT, VV_TOP, VV_RIGHT, VV_BOTTOM, VV_ONE, VV_COUNT
+};
+
+static void R_AliasVertsVec (int n, finalvert_t *fv, auxvert_t *av, const trivertx_t *pv,
+			     float xscale, float yscale, float zscale)
+{
+	union { float f; int i; } k[VV_COUNT];
+	int	i, j, count;
+	const trivertx_t *p;
+	auxvert_t	*a;
+	finalvert_t	*f;
+
+	for (i = 0; i < 3; i++)
+		for (j = 0; j < 4; j++)
+			k[VV_M + i * 4 + j].f = aliastransform[i][j];
+	for (i = 0; i < 3; i++)
+		k[VV_LIGHTVEC + i].f = r_plightvec[i];
+	k[VV_SHADE].f = r_shadelight;
+	k[VV_AMBIENT].i = r_ambientlight;
+	k[VV_ZISCALE].f = zscale;
+	k[VV_XSCALE].f = xscale;
+	k[VV_YSCALE].f = yscale;
+	k[VV_XCENTER].f = aliasxcenter;
+	k[VV_YCENTER].f = aliasycenter;
+	k[VV_ZCLIP].f = ALIAS_Z_CLIP_PLANE;
+	k[VV_LEFT].i = r_refdef.aliasvrect.x;
+	k[VV_TOP].i = r_refdef.aliasvrect.y;
+	k[VV_RIGHT].i = r_refdef.aliasvrectright;
+	k[VV_BOTTOM].i = r_refdef.aliasvrectbottom;
+	k[VV_ONE].f = 1.0f;
+
+	/* transform and light */
+	count = n; p = pv; a = av; f = fv;
+	__asm__ volatile(
+		"    getsr   vl, #0x10\n"
+		"    ldw     r9, [%[k], #0]\n    mov v8, r9\n"
+		"    ldw     r9, [%[k], #4]\n    mov v9, r9\n"
+		"    ldw     r9, [%[k], #8]\n    mov v10, r9\n"
+		"    ldw     r9, [%[k], #12]\n   mov v11, r9\n"
+		"    ldw     r9, [%[k], #16]\n   mov v12, r9\n"
+		"    ldw     r9, [%[k], #20]\n   mov v13, r9\n"
+		"    ldw     r9, [%[k], #24]\n   mov v14, r9\n"
+		"    ldw     r9, [%[k], #28]\n   mov v15, r9\n"
+		"    ldw     r9, [%[k], #32]\n   mov v16, r9\n"
+		"    ldw     r9, [%[k], #36]\n   mov v17, r9\n"
+		"    ldw     r9, [%[k], #40]\n   mov v18, r9\n"
+		"    ldw     r9, [%[k], #44]\n   mov v19, r9\n"
+		"    ldw     r9, [%[k], #48]\n   mov v20, r9\n"
+		"    ldw     r9, [%[k], #52]\n   mov v21, r9\n"
+		"    ldw     r9, [%[k], #56]\n   mov v22, r9\n"
+		"    ldw     r9, [%[k], #60]\n   mov v23, r9\n"
+		"    ldw     r9, [%[k], #64]\n   mov v24, r9\n"
+		"    ldi     r10, #12\n"
+		"1:\n"
+		"    min     vl, vl, %[count]\n"
+		"    sub     %[count], %[count], vl\n"
+		"    ldub    v1, [%[p], #4]\n"
+		"    add     r9, %[p], #1\n"
+		"    ldub    v2, [r9, #4]\n"
+		"    add     r9, %[p], #2\n"
+		"    ldub    v3, [r9, #4]\n"
+		"    add     r9, %[p], #3\n"
+		"    ldub    v4, [r9, #4]\n"
+		"    itof    v1, v1, z\n"
+		"    itof    v2, v2, z\n"
+		"    itof    v3, v3, z\n"
+		"    fmul    v5, v1, v8\n"
+		"    fmul    v6, v2, v9\n"
+		"    fadd    v5, v5, v6\n"
+		"    fmul    v6, v3, v10\n"
+		"    fadd    v5, v5, v6\n"
+		"    fadd    v5, v5, v11\n"
+		"    stw     v5, [%[a], #12]\n"
+		"    fmul    v5, v1, v12\n"
+		"    fmul    v6, v2, v13\n"
+		"    fadd    v5, v5, v6\n"
+		"    fmul    v6, v3, v14\n"
+		"    fadd    v5, v5, v6\n"
+		"    fadd    v5, v5, v15\n"
+		"    add     r9, %[a], #4\n"
+		"    stw     v5, [r9, #12]\n"
+		"    fmul    v5, v1, v16\n"
+		"    fmul    v6, v2, v17\n"
+		"    fadd    v5, v5, v6\n"
+		"    fmul    v6, v3, v18\n"
+		"    fadd    v5, v5, v6\n"
+		"    fadd    v5, v5, v19\n"
+		"    add     r9, %[a], #8\n"
+		"    stw     v5, [r9, #12]\n"
+		"    mul     v4, v4, r10\n"
+		"    ldw     v1, [%[nrm], v4]\n"
+		"    add     r9, %[nrm], #4\n"
+		"    ldw     v2, [r9, v4]\n"
+		"    add     r9, %[nrm], #8\n"
+		"    ldw     v3, [r9, v4]\n"
+		"    fmul    v1, v1, v20\n"
+		"    fmul    v2, v2, v21\n"
+		"    fadd    v1, v1, v2\n"
+		"    fmul    v3, v3, v22\n"
+		"    fadd    v1, v1, v3\n"
+		"    fmin    v1, v1, z\n"
+		"    fmul    v1, v23, v1\n"
+		"    ftoi    v1, v1, z\n"
+		"    add     v1, v1, v24\n"
+		"    max     v1, v1, z\n"
+		"    add     r9, %[f], #16\n"
+		"    stw     v1, [r9, #32]\n"
+		"    ldea    %[p], [%[p], vl*4]\n"
+		"    mul     r9, vl, r10\n"
+		"    add     %[a], %[a], r9\n"
+		"    ldea    %[f], [%[f], vl*8]\n"
+		"    ldea    %[f], [%[f], vl*8]\n"
+		"    ldea    %[f], [%[f], vl*8]\n"
+		"    ldea    %[f], [%[f], vl*8]\n"
+		"    bnz     %[count], 1b\n"
+		: [count] "+r"(count), [p] "+r"(p), [a] "+r"(a), [f] "+r"(f)
+		: [k] "r"(k), [nrm] "r"(r_avertexnormals)
+		: "r9", "r10", "vl", "v1", "v2", "v3", "v4", "v5", "v6",
+		  "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18",
+		  "v19", "v20", "v21", "v22", "v23", "v24", "memory"
+	);
+
+	/* project and clip test */
+	count = n; a = av; f = fv;
+	__asm__ volatile(
+		"    getsr   vl, #0x10\n"
+		"    ldw     r9, [%[k], #68]\n   mov v8, r9\n"
+		"    ldw     r9, [%[k], #72]\n   mov v9, r9\n"
+		"    ldw     r9, [%[k], #76]\n   mov v10, r9\n"
+		"    ldw     r9, [%[k], #80]\n   mov v11, r9\n"
+		"    ldw     r9, [%[k], #84]\n   mov v12, r9\n"
+		"    ldw     r9, [%[k], #88]\n   mov v13, r9\n"
+		"    ldw     r9, [%[k], #92]\n   mov v14, r9\n"
+		"    ldw     r9, [%[k], #96]\n   mov v15, r9\n"
+		"    ldw     r9, [%[k], #100]\n  mov v16, r9\n"
+		"    ldw     r9, [%[k], #104]\n  mov v17, r9\n"
+		"    ldw     r9, [%[k], #108]\n  mov v18, r9\n"
+		"    ldi     r10, #12\n"
+		"1:\n"
+		"    min     vl, vl, %[count]\n"
+		"    sub     %[count], %[count], vl\n"
+		"    ldw     v1, [%[a], #12]\n"
+		"    add     r9, %[a], #4\n"
+		"    ldw     v2, [r9, #12]\n"
+		"    add     r9, %[a], #8\n"
+		"    ldw     v3, [r9, #12]\n"
+		"    fdiv    v4, v18, v3\n"
+		"    fmul    v5, v4, v8\n"
+		"    ftoi    v5, v5, z\n"
+		"    add     r9, %[f], #20\n"
+		"    stw     v5, [r9, #32]\n"
+		"    fmul    v1, v1, v9\n"
+		"    fmul    v1, v1, v4\n"
+		"    fadd    v1, v1, v11\n"
+		"    ftoi    v1, v1, z\n"
+		"    stw     v1, [%[f], #32]\n"
+		"    fmul    v2, v2, v10\n"
+		"    fmul    v2, v2, v4\n"
+		"    fadd    v2, v2, v12\n"
+		"    ftoi    v2, v2, z\n"
+		"    add     r9, %[f], #4\n"
+		"    stw     v2, [r9, #32]\n"
+		"    slt     v5, v1, v14\n"
+		"    and     v5, v5, #1\n"
+		"    slt     v6, v2, v15\n"
+		"    and     v6, v6, #2\n"
+		"    or      v5, v5, v6\n"
+		"    slt     v6, v16, v1\n"
+		"    and     v6, v6, #4\n"
+		"    or      v5, v5, v6\n"
+		"    slt     v6, v17, v2\n"
+		"    and     v6, v6, #8\n"
+		"    or      v5, v5, v6\n"
+		"    fslt    v6, v3, v13\n"
+		"    ldi     r9, #16\n"
+		"    and     v7, v6, r9\n"
+		"    sel     v6, v7, v5\n"
+		"    add     r9, %[f], #24\n"
+		"    stw     v6, [r9, #32]\n"
+		"    mul     r9, vl, r10\n"
+		"    add     %[a], %[a], r9\n"
+		"    ldea    %[f], [%[f], vl*8]\n"
+		"    ldea    %[f], [%[f], vl*8]\n"
+		"    ldea    %[f], [%[f], vl*8]\n"
+		"    ldea    %[f], [%[f], vl*8]\n"
+		"    bnz     %[count], 1b\n"
+		: [count] "+r"(count), [a] "+r"(a), [f] "+r"(f)
+		: [k] "r"(k)
+		: "r9", "r10", "vl", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+		  "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "memory"
+	);
+}
+#endif
+
 static void R_AliasPreparePoints (void)
 {
 	int			i;
@@ -301,6 +506,10 @@ static void R_AliasPreparePoints (void)
 	fv = pfinalverts;
 	av = pauxverts;
 
+#ifdef USE_VERTS_VEC
+	R_AliasVertsVec (r_anumverts, fv, av, r_apverts, aliasxscale, aliasyscale, ziscale);
+	r_apverts += r_anumverts;
+#else
 	for (i = 0 ; i < r_anumverts ; i++, fv++, av++, r_apverts++)
 	{
 //		fv->v[2] = pstverts->s;
@@ -323,6 +532,7 @@ static void R_AliasPreparePoints (void)
 				fv->flags |= ALIAS_BOTTOM_CLIP;
 		}
 	}
+#endif
 
 //
 // clip and draw all triangles
@@ -681,7 +891,11 @@ void R_AliasPrepareUnclippedPoints (void)
 // FIXME: just use pfinalverts directly?
 	fv = pfinalverts;
 
+#ifdef USE_VERTS_VEC
+	R_AliasVertsVec (r_anumverts, fv, pauxverts, r_apverts, 1.0f, 1.0f, 1.0f);
+#else
 	R_AliasTransformAndProjectFinalVerts (fv, pstverts);
+#endif
 
 	r_affinetridesc.pfinalverts = pfinalverts;
 	r_affinetridesc.ptriangles = (mtriangle_t *)

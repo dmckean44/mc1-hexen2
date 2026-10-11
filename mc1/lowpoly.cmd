@@ -1,0 +1,1 @@
+python3 tools/mdllod.py data/data1/pak0.pak -o data_lp/data1/pak1.pak -r 0.5 --weld-normals --min-normal-dot -0.5 --uv-tolerance 32 --rule models/gauntlet.mdl=1 --rule models/vorpal.mdl=1 --rule models/axe.mdl=1 --rule models/purifier.mdl=1 --rule models/punchdgr.mdl=1 --rule models/crossbow.mdl=1

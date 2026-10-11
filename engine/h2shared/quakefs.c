@@ -1270,7 +1270,9 @@ void FS_Init (void)
 			Sys_Error ("Unable to verify retail version data.");
 	}
 #if !(defined(H2W) && defined(SERVERONLY))
-	if (gameflags & GAME_MODIFIED && !(gameflags & (GAME_REGISTERED|GAME_REGISTERED_OLD)))
+	/* -extrapaks: local benchmarking with extra paks (e.g. reduced models) on the demo */
+	if (gameflags & GAME_MODIFIED && !(gameflags & (GAME_REGISTERED|GAME_REGISTERED_OLD))
+			&& !COM_CheckParm ("-extrapaks"))
 		Sys_Error ("You must have the full version of Hexen II to play modified games");
 #endif
 
