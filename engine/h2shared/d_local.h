@@ -114,6 +114,10 @@ void D_DrawSpans8T(espan_t *pspans);
 void D_DrawZSpans (espan_t *pspans);
 void D_DrawSingleZSpans (espan_t *pspans);
 
+#if !id386 && defined(__MRISC32_HARD_FLOAT__) && !defined(NO_MR32_ASM)
+void D_DrawSpans16 (espan_t *pspans);	/* d_scan_mr32.s */
+#endif
+
 #if id386
 void D_DrawSpans16 (espan_t *pspans);
 void D_DrawSpans16T (espan_t *pspans);
