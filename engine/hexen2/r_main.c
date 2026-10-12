@@ -20,6 +20,7 @@
 
 #include "quakedef.h"
 #include "r_local.h"
+#include "d_pe.h"
 #include "d_local.h"
 
 //#define	PASSAGES
@@ -240,6 +241,7 @@ void R_Init (void)
 
 	Cvar_RegisterVariable (&r_draworder);
 	Cvar_RegisterVariable (&r_lodsize);
+	PE_Init ();
 	Cvar_RegisterVariable (&r_speeds);
 	Cvar_RegisterVariable (&r_timegraph);
 	Cvar_RegisterVariable (&r_graphheight);
@@ -1232,6 +1234,7 @@ static void R_RenderView_ (void)
 	}
 
 	R_SetupFrame ();
+	PE_BeginFrame ();
 
 #ifdef PASSAGES
 	SetVisibilityByPassages ();
@@ -1293,6 +1296,7 @@ static void R_RenderView_ (void)
 	if (r_dspeeds.integer)
 		dp_time2 = Sys_DoubleTime ();
 
+	PE_Finish ();
 	if (r_dowarp)
 		D_WarpScreen ();
 

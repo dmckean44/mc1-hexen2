@@ -23,6 +23,7 @@
 
 #include "quakedef.h"
 #include "d_local.h"
+#include "d_pe.h"
 
 static int		sprite_height;
 static int		minindex, maxindex;
@@ -698,6 +699,7 @@ D_DrawSprite
 */
 void D_DrawSprite (void)
 {
+	PE_Finish ();
 	int			i, nump;
 	float		ymin, ymax;
 	emitpoint_t	*pverts;

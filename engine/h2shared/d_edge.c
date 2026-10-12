@@ -21,6 +21,7 @@
 
 #include "quakedef.h"
 #include "d_local.h"
+#include "d_pe.h"
 #include "r_local.h"
 
 static int	miplevel;
@@ -263,6 +264,12 @@ void D_DrawSurfaces (qboolean Translucent)
 			d_zistepv = s->d_zistepv;
 			d_ziorigin = s->d_ziorigin;
 
+			if (pe_active)
+			{
+				PE_DrawSpans (s->spans, PE_SPAN_FLAT | PE_SPAN_Z | (((intptr_t)s->data & 0xFF) << 8),
+						NULL, d_ziorigin, d_zistepu, d_zistepv);
+				continue;
+			}
 			D_DrawSolidSurface (s, (intptr_t)s->data & 0xFF);
 			D_DrawZSpans (s->spans);
 		}
@@ -293,8 +300,14 @@ void D_DrawSurfaces (qboolean Translucent)
 						D_DrawSolidSurface (s, SiegeFlatSkyFadeTable[(int)floor(d_lightstylevalue[0]/22)]);
 					else
 					#endif
+					if (pe_active)
+						PE_DrawSpans (s->spans, PE_SPAN_FLAT | PE_SPAN_Z, NULL,
+								d_ziorigin, d_zistepu, d_zistepv);
+					else
+					{
 						D_DrawSolidSurface (s, 0);
-					D_DrawZSpans (s->spans);
+						D_DrawZSpans (s->spans);
+					}
 					continue;
 				}
 				if (s->flags & SURF_DRAWSKY)
@@ -315,8 +328,16 @@ void D_DrawSurfaces (qboolean Translucent)
 					d_zistepv = 0;
 					d_ziorigin = -0.9;
 
-					D_DrawSolidSurface (s, r_clearcolor.integer & 0xFF);
-					D_DrawZSpans (s->spans);
+					if (pe_active)
+					{
+						PE_DrawSpans (s->spans, PE_SPAN_FLAT | PE_SPAN_Z | ((r_clearcolor.integer & 0xFF) << 8),
+								NULL, d_ziorigin, d_zistepu, d_zistepv);
+					}
+					else
+					{
+						D_DrawSolidSurface (s, r_clearcolor.integer & 0xFF);
+						D_DrawZSpans (s->spans);
+					}
 				}
 				else if (s->flags & SURF_DRAWTURB)
 				{
@@ -342,8 +363,17 @@ void D_DrawSurfaces (qboolean Translucent)
 					}
 
 					D_CalcGradients (pface);
-					Turbulent8 (s);
-					D_DrawZSpans (s->spans);
+					if (pe_active)
+					{
+						PE_DrawSpans (s->spans, PE_SPAN_TEX | PE_SPAN_TURB | PE_SPAN_Z,
+								sintable + ((int)(cl.time*SPEED)&(CYCLE-1)),
+								d_ziorigin, d_zistepu, d_zistepv);
+					}
+					else
+					{
+						Turbulent8 (s);
+						D_DrawZSpans (s->spans);
+					}
 
 					if (s->insubmodel)
 					{
@@ -393,7 +423,12 @@ void D_DrawSurfaces (qboolean Translucent)
 						}
 						else
 							light = 255;
-						D_DrawSolidSurface (s, ((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]]);
+						if (pe_active)
+							PE_DrawSpans (s->spans, PE_SPAN_FLAT | PE_SPAN_Z |
+									(((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]] << 8),
+									NULL, d_ziorigin, d_zistepu, d_zistepv);
+						else
+							D_DrawSolidSurface (s, ((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]]);
 					}
 					else
 					{
@@ -408,10 +443,18 @@ void D_DrawSurfaces (qboolean Translucent)
 
 						D_CalcGradients (pface);
 
-						(*d_drawspans) (s->spans);
+						if (pe_active)
+						{
+							PE_DrawSpans (s->spans, PE_SPAN_TEX | PE_SPAN_Z, NULL,
+									d_ziorigin, d_zistepu, d_zistepv);
+							pcurrentcache->pe_fence = pe_submitted;
+						}
+						else
+							(*d_drawspans) (s->spans);
 					}
 
-					D_DrawZSpans (s->spans);
+					if (!pe_active)
+						D_DrawZSpans (s->spans);
 
 					if (s->insubmodel)
 					{
@@ -434,6 +477,7 @@ void D_DrawSurfaces (qboolean Translucent)
 		}
 		else
 		{
+			PE_Finish ();
 			count = 0;
 
 			for (s = &surfaces[1] ; s < surface_p ; s++)

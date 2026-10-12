@@ -21,6 +21,7 @@
 
 #include "quakedef.h"
 #include "d_local.h"
+#include "d_pe.h"
 #include "r_local.h"
 
 static float	surfscale;
@@ -93,6 +94,7 @@ void D_InitCaches (void *buffer, int size)
 
 	sc_base->next = NULL;
 	sc_base->owner = NULL;
+	sc_base->pe_fence = 0;
 	sc_base->size = sc_size;
 
 	D_ClearCacheGuard ();
@@ -111,6 +113,7 @@ void D_FlushCaches (void)
 	if (!sc_base)
 		return;
 
+	PE_Finish ();
 	for (c = sc_base ; c ; c = c->next)
 	{
 		if (c->owner)
@@ -120,6 +123,7 @@ void D_FlushCaches (void)
 	sc_rover = sc_base;
 	sc_base->next = NULL;
 	sc_base->owner = NULL;
+	sc_base->pe_fence = 0;
 	sc_base->size = sc_size;
 }
 
@@ -164,6 +168,7 @@ static surfcache_t *D_SCAlloc (int width, int size)
 	new_sc = sc_rover;
 	if (sc_rover->owner)
 		*sc_rover->owner = NULL;
+	PE_WaitFor (new_sc->pe_fence);
 
 	while (new_sc->size < size)
 	{
@@ -173,6 +178,7 @@ static surfcache_t *D_SCAlloc (int width, int size)
 			Sys_Error ("%s: hit the end of memory", __thisfunc__);
 		if (sc_rover->owner)
 			*sc_rover->owner = NULL;
+		PE_WaitFor (sc_rover->pe_fence);
 
 		new_sc->size += sc_rover->size;
 		new_sc->next = sc_rover->next;
@@ -186,6 +192,7 @@ static surfcache_t *D_SCAlloc (int width, int size)
 		sc_rover->next = new_sc->next;
 		sc_rover->width = 0;
 		sc_rover->owner = NULL;
+		sc_rover->pe_fence = 0;
 		new_sc->next = sc_rover;
 		new_sc->size = size;
 	}
@@ -325,7 +332,16 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 	r_drawsurf.surf = surface;
 
 	c_surf++;
-	R_DrawSurface ();
+	if (pe_active)
+	{
+		PE_DrawSurfaceBlocks ();
+		cache->pe_fence = pe_submitted;
+	}
+	else
+	{
+		PE_WaitFor (cache->pe_fence);
+		R_DrawSurface ();
+	}
 
 	return surface->cachespots[miplevel];
 }

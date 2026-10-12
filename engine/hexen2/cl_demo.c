@@ -39,6 +39,9 @@ static void CL_ProfMark (const char *tag)
 		hi2 = GET_MMIO (CLKCNTHI);
 	} while (hi1 != hi2);
 	printf ("%s cycles=%llu\n", tag, ((unsigned long long)hi1 << 32) | lo);
+	if ((*(volatile unsigned *)0xc0000200 >> 16) == 0x5045)
+		printf ("%s pe_busy=%u pe_stall=%u\n", tag, *(volatile unsigned *)0xc0000218,
+				*(volatile unsigned *)0xc0000220);
 }
 #else
 #define CL_ProfMark(tag)	do {} while (0)

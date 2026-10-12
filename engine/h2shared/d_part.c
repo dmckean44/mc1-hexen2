@@ -23,6 +23,7 @@
 
 #include "quakedef.h"
 #include "d_local.h"
+#include "d_pe.h"
 
 
 /*
@@ -101,6 +102,17 @@ void D_DrawParticle (particle_t *pparticle)
 	 * wall) lead to negative values, because R_UpdateParticles ()
 	 * decrements their color against time. */
 	color = ((int) pparticle->color) & 0x01ff;
+	if (pe_active && d_y_aspect_shift == 0)
+	{
+		PE_Begin (PE_PARTICLE, 6);
+		PE_Word (u);
+		PE_Word (v);
+		PE_Word (izi);
+		PE_Word (pix);
+		PE_Word (color & 0xff);
+		PE_Word (color >= 256 ? PE_PARTICLE_66 : PE_PARTICLE_OPAQUE);
+		return;
+	}
 	if ((is_trans = (color >= 256)))
 		color = (color - 256) << 8;	/* << 8 for transTable idx */
 

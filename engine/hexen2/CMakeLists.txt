@@ -35,7 +35,7 @@ option(MR32_ASM "Use the MRISC32 assembler routines" ON)
 list(APPEND DEFS -DDEMOBUILD -D_NO_SOUND -D_NO_MIDIDRV -D_NO_CDAUDIO -DNDEBUG=1)
 
 if(MC1)
-  list(APPEND SRCS sys_mc1.c net_mc1.c fastmath_mc1.c ../h2shared/vid_mc1.c ../h2shared/in_mc1.c)
+  list(APPEND SRCS sys_mc1.c net_mc1.c fastmath_mc1.c ../h2shared/d_pe.c ../h2shared/vid_mc1.c ../h2shared/in_mc1.c)
   if(MR32_ASM)
     list(APPEND SRCS ../h2shared/d_scan_mr32.s)
   else()

@@ -20,6 +20,7 @@
 
 #include "quakedef.h"
 #include "r_local.h"
+#include "d_pe.h"
 #include "d_local.h"	// FIXME: shouldn't be needed (is needed for patch
 			//	  right now, but that should move)
 
@@ -1263,6 +1264,14 @@ void R_AliasDrawModel (alight_t *plighting)
 			}
 		}
 	}
+
+	pe_alias = pe_active && acolormap == vid.colormap &&
+		!(currententity->model->flags & (EF_SPECIAL_TRANS | EF_TRANSPARENT | EF_HOLEY)) &&
+		!(currententity->drawflags & DRF_TRANSLUCENT);
+	if (pe_alias)
+		PE_SetSkin (r_affinetridesc.pskin, r_affinetridesc.skinwidth);
+	else
+		PE_Finish ();
 
 	if (currententity != &cl.viewent)
 		ziscale = (float)0x8000 * (float)0x10000;

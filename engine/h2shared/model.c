@@ -26,6 +26,8 @@
 #include "hashindex.h"
 #include "hwal.h"
 #include "r_local.h"
+#include "d_local.h"
+#include "d_pe.h"
 
 static qmodel_t*	loadmodel;
 static char	loadname[MAX_QPATH];	/* for hunk tags */
@@ -319,8 +321,9 @@ static qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash)
 	}
 
 //
-// load the file
+// load the file; it may evict cached models the pixel engine still reads
 //
+	PE_Finish ();
 	buf = FS_LoadStackFile (mod->name, stackbuf, sizeof(stackbuf), & mod->path_id);
 	if (!buf)
 	{
