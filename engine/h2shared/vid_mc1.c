@@ -18,8 +18,13 @@
 #include "d_local.h"
 #include "mc1.h"
 
+/* -DBASEWIDTH=640 for 640x240 (pixels twice as tall as wide) */
+#ifndef BASEWIDTH
 #define BASEWIDTH	320
+#endif
+#ifndef BASEHEIGHT
 #define BASEHEIGHT	240
+#endif
 
 unsigned short	d_8to16table[256];
 unsigned int	d_8to24table[256];
