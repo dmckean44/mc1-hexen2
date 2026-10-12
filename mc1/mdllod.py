@@ -233,6 +233,8 @@ def main():
     parser.add_argument("--seam-weight", type=float, default=2.0)
     parser.add_argument("--uv-tolerance", type=float, default=2.0)
     parser.add_argument("--only", default="*.mdl", help="glob of models to process")
+    parser.add_argument("--suffix", default="",
+                        help="appended to output model names, e.g. '_lod' for distance LOD models")
     parser.add_argument("--weld-normals", action="store_true",
                         help="also merge vertices whose normals differ (changes shading)")
     args = parser.parse_args()
@@ -257,7 +259,7 @@ def main():
         small.front = front
         total_before += before
         total_after += len(small.tri_xyz)
-        out[name] = small.serialize()
+        out[name[:-4] + args.suffix + name[-4:]] = small.serialize()
         print(f"{name}: {before} -> {len(small.tri_xyz)} triangles", file=sys.stderr)
 
     write_pak(args.output, out)

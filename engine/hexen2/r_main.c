@@ -140,6 +140,7 @@ cvar_t	r_timegraph = {"r_timegraph", "0", CVAR_NONE};
 cvar_t	r_graphheight = {"r_graphheight", "10", CVAR_NONE};
 cvar_t	r_clearcolor = {"r_clearcolor", "0", CVAR_NONE};
 cvar_t	r_waterwarp = {"r_waterwarp", "1", CVAR_ARCHIVE};
+cvar_t	r_lodsize = {"r_lodsize", "48", CVAR_ARCHIVE};
 cvar_t	r_fullbright = {"r_fullbright", "0", CVAR_NONE};
 cvar_t	r_drawentities = {"r_drawentities", "1", CVAR_NONE};
 cvar_t	r_drawviewmodel = {"r_drawviewmodel", "1", CVAR_NONE};
@@ -238,6 +239,7 @@ void R_Init (void)
 	Cmd_AddCommand ("pointfile", R_ReadPointFile_f);
 
 	Cvar_RegisterVariable (&r_draworder);
+	Cvar_RegisterVariable (&r_lodsize);
 	Cvar_RegisterVariable (&r_speeds);
 	Cvar_RegisterVariable (&r_timegraph);
 	Cvar_RegisterVariable (&r_graphheight);

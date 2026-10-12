@@ -272,6 +272,28 @@ void Mod_TouchModel (const char *name)
 
 /*
 ==================
+Mod_FindLod
+
+Uses "foo_lod.mdl" for "foo.mdl" if the game data has one
+==================
+*/
+static void Mod_FindLod (qmodel_t *mod)
+{
+	char	name[MAX_QPATH];
+	size_t	len = strlen (mod->name);
+
+	if (len < 4 || len + 4 >= sizeof(name) || q_strcasecmp (mod->name + len - 4, ".mdl"))
+		return;
+	if (len >= 8 && !q_strcasecmp (mod->name + len - 8, "_lod.mdl"))
+		return;
+	memcpy (name, mod->name, len - 4);
+	strcpy (name + len - 4, "_lod.mdl");
+	if (FS_FileExists (name, NULL))
+		mod->lod = Mod_FindName (name);
+}
+
+/*
+==================
 Mod_LoadModel
 
 Loads a model into the cache
@@ -337,6 +359,9 @@ static qmodel_t *Mod_LoadModel (qmodel_t *mod, qboolean crash)
 		Mod_LoadBrushModel (mod, buf);
 		break;
 	}
+
+	if (mod->type == mod_alias && !mod->lod)
+		Mod_FindLod (mod);
 
 	return mod;
 }

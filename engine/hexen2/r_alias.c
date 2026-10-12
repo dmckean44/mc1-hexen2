@@ -1137,6 +1137,34 @@ static void R_AliasSetupFrame (void)
 R_AliasDrawModel
 ================
 */
+static qboolean R_AliasSameLayout (aliashdr_t *a, aliashdr_t *b)
+{
+	newmdl_t	*ma = (newmdl_t *)((byte *)a + a->model);
+	newmdl_t	*mb = (newmdl_t *)((byte *)b + b->model);
+
+	return ma->numframes == mb->numframes && ma->numskins == mb->numskins;
+}
+
+static aliashdr_t *R_AliasSelectLod (void)
+{
+	qmodel_t	*mod = currententity->model;
+	aliashdr_t	*full, *lod;
+	vec3_t		delta;
+
+	if (!mod->lod || r_lodsize.value <= 0 || currententity == &cl.viewent)
+		return (aliashdr_t *)Mod_Extradata (mod);
+	VectorSubtract (currententity->origin, r_origin, delta);
+	if (DotProduct (delta, vpn) * r_lodsize.value <= 64.0f * xscale)
+		return (aliashdr_t *)Mod_Extradata (mod);
+
+	// loading one can push the other out of the cache
+	lod = (aliashdr_t *)Mod_Extradata (mod->lod);
+	full = (aliashdr_t *)Mod_Extradata (mod);
+	if (!Cache_Check (&mod->lod->cache) || !R_AliasSameLayout (lod, full))
+		return full;
+	return lod;
+}
+
 void R_AliasDrawModel (alight_t *plighting)
 {
 	int		mls;
@@ -1152,7 +1180,7 @@ void R_AliasDrawModel (alight_t *plighting)
 			(((intptr_t)&finalverts[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 	pauxverts = &auxverts[0];
 
-	paliashdr = (aliashdr_t *)Mod_Extradata (currententity->model);
+	paliashdr = R_AliasSelectLod ();
 	pmdl = (newmdl_t *)((byte *)paliashdr + paliashdr->model);
 
 	R_AliasSetupSkin ();

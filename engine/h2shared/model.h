@@ -452,6 +452,7 @@ typedef struct qmodel_s
 // additional model data
 //
 	cache_user_t	cache;		// only access through Mod_Extradata
+	struct qmodel_s	*lod;		// simplified alias model for distant entities
 } qmodel_t;
 
 // values for qmodel_t->needload
