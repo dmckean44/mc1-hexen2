@@ -48,9 +48,9 @@ qboolean	host_initialized;		// true if into command execution
 
 static jmp_buf	host_abort;
 
-double		host_frametime;
-double		realtime;			// without any filtering or bounding
-static double	oldrealtime;			// last frame run
+qdouble_t		host_frametime;
+qdouble_t		realtime;			// without any filtering or bounding
+static qdouble_t	oldrealtime;			// last frame run
 int		host_framecount;
 
 int		host_hunklevel;
@@ -575,7 +575,7 @@ void Host_ShutdownServer(qboolean crash)
 	int		count;
 	sizebuf_t	buf;
 	byte		message[4];
-	double	start;
+	qdouble_t	start;
 
 	if (!sv.active)
 		return;
@@ -806,12 +806,12 @@ Runs all active servers
 */
 static void _Host_Frame (float time)
 {
-	static double		time1 = 0;
-	static double		time2 = 0;
-	static double		time3 = 0;
+	static qdouble_t		time1 = 0;
+	static qdouble_t		time2 = 0;
+	static qdouble_t		time3 = 0;
 	int			pass1, pass2, pass3;
 #if !defined(FPS_20)
-	double	save_host_frametime,total_host_frametime;
+	qdouble_t	save_host_frametime,total_host_frametime;
 #endif
 
 	if (setjmp(host_abort))
@@ -954,8 +954,8 @@ static void _Host_Frame (float time)
 
 void Host_Frame (float time)
 {
-	double	time1, time2;
-	static double	timetotal;
+	qdouble_t	time1, time2;
+	static qdouble_t	timetotal;
 	static int	timecount;
 	int		i, c, m;
 

@@ -2249,7 +2249,7 @@ trace_t SV_Trace_Toss (edict_t *ent, edict_t *ignore)
 	trace_t	trace;
 	vec3_t	move;
 	vec3_t	end;
-	double	save_frametime;
+	qdouble_t	save_frametime;
 //	extern particle_t	*active_particles, *free_particles;
 //	particle_t	*p;
 

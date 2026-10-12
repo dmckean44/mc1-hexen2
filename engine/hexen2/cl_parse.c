@@ -1122,7 +1122,7 @@ void CL_ParseServerMessage (void)
 	int		EntityCount = 0;
 	int		EntitySize = 0;
 	int		before;
-	static		double lasttime;
+	static		qdouble_t lasttime;
 	static		qboolean packet_loss = false;
 	entity_t	*ent;
 	int		sc1, sc2;

@@ -177,7 +177,7 @@ typedef struct
 	float		pitchvel;
 	qboolean	nodrift;
 	float		driftmove;
-	double		laststop;
+	qdouble_t		laststop;
 
 	float		viewheight;
 	float		crouch;			// local amount for smoothing stepups
@@ -195,12 +195,12 @@ typedef struct
 	int		lasting_time;
 	int		intermission_next;
 
-	double		mtime[2];		// the timestamp of last two messages
-	double		time;			// clients view of time, should be between
+	qdouble_t		mtime[2];		// the timestamp of last two messages
+	qdouble_t		time;			// clients view of time, should be between
 						// servertime and oldservertime to generate
 						// a lerp point for other data
 
-	double		oldtime;		// previous cl.time, time-oldtime is used
+	qdouble_t		oldtime;		// previous cl.time, time-oldtime is used
 						// to decay light values and smooth step ups
 
 	float		last_received_message;	// (realtime) for net trouble icon

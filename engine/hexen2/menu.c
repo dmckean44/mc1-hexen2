@@ -108,7 +108,7 @@ static float	LogoTargetPercent = 1;
 static int	setup_class;
 
 static const char	*msave_message, *msave_message2;
-static double	message_time;
+static qdouble_t	message_time;
 
 
 static void M_ConfigureNetSubsystem(void);
@@ -4827,7 +4827,7 @@ static void M_GameOptions_Key (int key)
 /* SEARCH MENU */
 
 static qboolean	searchComplete = false;
-static double	searchCompleteTime;
+static qdouble_t	searchCompleteTime;
 
 static void M_Menu_Search_f (void)
 {

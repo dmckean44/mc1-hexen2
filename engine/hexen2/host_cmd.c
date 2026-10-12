@@ -25,7 +25,7 @@
 #include "quakedef.h"
 #include "q_ctype.h"
 
-static	double	old_svtime;
+static	qdouble_t	old_svtime;
 	/* sv.time of prev. level when changing levels, saved by changelevel2().
 	 * used for adjusting time globalvars of progs by RestoreClients() when
 	 * travelling levels back and forth (see clients.hc::ClientReEnter().  */
@@ -954,7 +954,7 @@ static void RestoreClients (int ClientsMode)
 {
 	int		i, j;
 	edict_t		*ent;
-	double		time_diff;
+	qdouble_t		time_diff;
 
 	if (LoadGamestate(NULL, NULL, 1) != 0)
 		return;

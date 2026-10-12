@@ -732,7 +732,7 @@ void D_DrawZSpans (espan_t *pspan)
 	int			izi;
 	short			*pdest;
 	unsigned int		ltemp;
-	double			zi;
+	qdouble_t			zi;
 	float			du, dv;
 
 // FIXME: check for clamping/range problems

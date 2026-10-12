@@ -25,6 +25,19 @@
 
 #include <math.h>
 
+#if defined(PLATFORM_MC1)
+/* no double precision hardware: use the float versions */
+#define sin(x)		sinf(x)
+#define cos(x)		cosf(x)
+#define tan(x)		tanf(x)
+#define atan(x)		atanf(x)
+#define atan2(y,x)	atan2f(y,x)
+#define sqrt(x)		sqrtf(x)
+#define ceil(x)		ceilf(x)
+#define floor(x)	floorf(x)
+#define fabs(x)		fabsf(x)
+#endif
+
 #ifndef M_PI
 #define M_PI		3.14159265358979323846	/* matches value in gcc v2 math.h */
 #endif

@@ -46,10 +46,10 @@ typedef struct
 	qboolean	paused;
 	qboolean	loadgame;	// handle connections specially
 
-	double		time;
+	qdouble_t		time;
 
 	int		lastcheck;	// used by PF_checkclient
-	double		lastchecktime;
+	qdouble_t		lastchecktime;
 
 	char		name[64];	// map name
 	char		midi_name[128];	// midi file name
@@ -93,7 +93,7 @@ typedef struct client_s
 	qboolean	dropasap;	// has been told to go to another level
 	qboolean	sendsignon;	// only valid before spawned
 
-	double		last_message;	// reliable messages must be sent
+	qdouble_t		last_message;	// reliable messages must be sent
 					// periodically
 
 	struct qsocket_s *netconnection; // communications handle

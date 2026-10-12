@@ -672,7 +672,7 @@ static void PF_normalize (void)
 {
 	float	*value1;
 	vec3_t	newvalue;
-	double	new_temp;
+	qdouble_t	new_temp;
 
 	value1 = G_VECTOR(OFS_PARM0);
 
@@ -703,7 +703,7 @@ scalar vlen(vector)
 static void PF_vlen (void)
 {
 	float	*value1;
-	double	new_temp;
+	qdouble_t	new_temp;
 
 	value1 = G_VECTOR(OFS_PARM0);
 
@@ -724,14 +724,14 @@ scalar vhlen(vector)
 static void PF_vhlen (void)
 {
 	float	*value1;
-	double	new_temp;
+	qdouble_t	new_temp;
 
 	value1 = G_VECTOR(OFS_PARM0);
 
 	/* using double here so that 64 bit/sse2 builds' precision matches that
 	 * of x87 floating point.  from QuakeSpasm, patch by Eric Wasylishen.  */
-	new_temp = (double)value1[0] * (double)value1[0] +
-		   (double)value1[1] * (double)value1[1];
+	new_temp = (qdouble_t)value1[0] * (qdouble_t)value1[0] +
+		   (qdouble_t)value1[1] * (qdouble_t)value1[1];
 	new_temp = sqrt(new_temp);
 
 	G_FLOAT(OFS_RETURN) = new_temp;
@@ -1451,7 +1451,7 @@ static void PF_FindPath(void)
 	float	*v1, *v2, *mins, *maxs;
 	int	nomonsters;
 	edict_t	*ent;
-	double b;
+	qdouble_t b;
 
 	v1 = G_VECTOR(OFS_PARM0);
 	v2 = G_VECTOR(OFS_PARM1);

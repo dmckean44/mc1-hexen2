@@ -640,7 +640,7 @@ Con_NotifyBox
 */
 void Con_NotifyBox (const char *text)
 {
-	double		t1, t2;
+	qdouble_t		t1, t2;
 
 // during startup for sound / cd warnings
 	Con_Printf("\n\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n");
