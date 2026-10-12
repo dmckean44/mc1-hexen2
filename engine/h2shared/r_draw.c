@@ -22,6 +22,8 @@
 
 #include "quakedef.h"
 #include "r_local.h"
+#include "d_local.h"
+#include "d_pe.h"
 
 #define MAXLEFTCLIPEDGES	100
 
@@ -225,6 +227,13 @@ static void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	if (edge->u > r_refdef.vrectright_adj_shift20)
 		edge->u = r_refdef.vrectright_adj_shift20;
 
+	if (pe_world)
+	{
+		edge->v_first = v;
+		edge->v_last = v2;
+		PE_AddEdge (edge, side);
+	}
+
 //
 // sort the edge in normally
 //
@@ -367,9 +376,17 @@ static void R_EmitCachedEdge (void)
 	pedge_t = (edge_t *)((intptr_t)r_edges + r_pedge->cachededgeoffset);
 
 	if (!pedge_t->surfs[0])
+	{
 		pedge_t->surfs[0] = surface_p - surfaces;
+		if (pe_world)
+			PE_AddEdge (pedge_t, 0);
+	}
 	else
+	{
 		pedge_t->surfs[1] = surface_p - surfaces;
+		if (pe_world)
+			PE_AddEdge (pedge_t, 1);
+	}
 
 	if (pedge_t->nearzi > r_nearzi)	// for mipmap finding
 		r_nearzi = pedge_t->nearzi;
@@ -410,6 +427,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 	}
 
 	c_faceclip++;
+	surface_p->pe_first = pe_numsurfedges;
 
 // set up clip planes
 	pclip = NULL;
@@ -543,9 +561,13 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 // if no edges made it out, return without posting the surface
 	r_pedge = NULL; /* silence -Wdangling-pointer warnings */
 	if (!r_emitted)
+	{
+		pe_numsurfedges = surface_p->pe_first;
 		return;
+	}
 
 	r_polycount++;
+	surface_p->pe_count = pe_numsurfedges - surface_p->pe_first;
 
 	surface_p->data = (void *)fa;
 	surface_p->nearzi = r_nearzi;
@@ -605,6 +627,7 @@ void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf)
 	}
 
 	c_faceclip++;
+	surface_p->pe_first = pe_numsurfedges;
 
 // this is a dummy to give the caching mechanism someplace to write to
 	r_pedge = &tedge;
@@ -661,9 +684,13 @@ void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf)
 // if no edges made it out, return without posting the surface
 	r_pedge = NULL; /* silence -Wdangling-pointer warnings */
 	if (!r_emitted)
+	{
+		pe_numsurfedges = surface_p->pe_first;
 		return;
+	}
 
 	r_polycount++;
+	surface_p->pe_count = pe_numsurfedges - surface_p->pe_first;
 
 	surface_p->data = (void *)psurf;
 	surface_p->nearzi = r_nearzi;

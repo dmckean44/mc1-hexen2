@@ -224,6 +224,279 @@ static const int SiegeFlatSkyFadeTable[25] =
 
 /*
 ==============
+D_DrawOpaqueSurface
+==============
+*/
+static vec3_t	world_transformed_modelorg;
+
+static void D_DrawOpaqueSurface (surf_t *s)
+{
+	msurface_t		*pface;
+	surfcache_t		*pcurrentcache;
+	vec3_t			local_modelorg;
+
+	d_zistepu = s->d_zistepu;
+	d_zistepv = s->d_zistepv;
+	d_ziorigin = s->d_ziorigin;
+
+//	if (!strncmp(pface->texinfo->texture->name,"*BLACK",6))
+	if (s->flags & SURF_DRAWBLACK)	// black vis-breaker, no turb
+	{
+		#if defined (H2W)
+		if (cl_siege)
+			D_DrawSolidSurface (s, SiegeFlatSkyFadeTable[(int)floor(d_lightstylevalue[0]/22)]);
+		else
+		#endif
+		if (pe_active)
+			PE_DrawSpans (s, PE_SPAN_FLAT | PE_SPAN_Z, NULL,
+					d_ziorigin, d_zistepu, d_zistepv);
+		else
+		{
+			D_DrawSolidSurface (s, 0);
+			D_DrawZSpans (s->spans);
+		}
+		return;
+	}
+	if (s->flags & SURF_DRAWSKY)
+	{
+		if (!r_skymade)
+		{
+			R_MakeSky ();
+		}
+
+		if (pe_active)
+			PE_DrawSky (s);
+		else
+		{
+			D_DrawSkyScans8 (s->spans);
+			D_DrawZSpans (s->spans);
+		}
+	}
+	else if (s->flags & SURF_DRAWBACKGROUND)
+	{
+	// set up a gradient for the background surface that places it
+	// effectively at infinity distance from the viewpoint
+		d_zistepu = 0;
+		d_zistepv = 0;
+		d_ziorigin = -0.9;
+
+		if (pe_active)
+		{
+			PE_DrawSpans (s, PE_SPAN_FLAT | PE_SPAN_Z | ((r_clearcolor.integer & 0xFF) << 8),
+					NULL, d_ziorigin, d_zistepu, d_zistepv);
+		}
+		else
+		{
+			D_DrawSolidSurface (s, r_clearcolor.integer & 0xFF);
+			D_DrawZSpans (s->spans);
+		}
+	}
+	else if (s->flags & SURF_DRAWTURB)
+	{
+		pface = (msurface_t *) s->data;
+		miplevel = 0;
+		cacheblock = (pixel_t *)
+				((byte *)pface->texinfo->texture +
+				pface->texinfo->texture->offsets[0]);
+		cachewidth = 64;
+
+		if (s->insubmodel)
+		{
+		// FIXME: we don't want to do all this for every polygon!
+		// TODO: store once at start of frame
+			currententity = s->entity;	//FIXME: make this passed in to
+										// R_RotateBmodel ()
+			VectorSubtract (r_origin, currententity->origin,
+					local_modelorg);
+			TransformVector (local_modelorg, transformed_modelorg);
+
+			R_RotateBmodel ();	// FIXME: don't mess with the frustum,
+								// make entity passed in
+		}
+
+		D_CalcGradients (pface);
+		if (pe_active)
+		{
+			PE_DrawSpans (s, PE_SPAN_TEX | PE_SPAN_TURB | PE_SPAN_Z,
+					sintable + ((int)(cl.time*SPEED)&(CYCLE-1)),
+					d_ziorigin, d_zistepu, d_zistepv);
+		}
+		else
+		{
+			Turbulent8 (s);
+			D_DrawZSpans (s->spans);
+		}
+
+		if (s->insubmodel)
+		{
+		//
+		// restore the old drawing state
+		// FIXME: we don't want to do this every time!
+		// TODO: speed up
+		//
+			currententity = &r_worldentity;
+			VectorCopy (world_transformed_modelorg,
+						transformed_modelorg);
+			VectorCopy (base_vpn, vpn);
+			VectorCopy (base_vup, vup);
+			VectorCopy (base_vright, vright);
+			VectorCopy (base_modelorg, modelorg);
+			R_TransformFrustum ();
+		}
+	}
+	else
+	{
+		if (s->insubmodel)
+		{
+		// FIXME: we don't want to do all this for every polygon!
+		// TODO: store once at start of frame
+			currententity = s->entity;	//FIXME: make this passed in to
+										// R_RotateBmodel ()
+			VectorSubtract (r_origin, currententity->origin, local_modelorg);
+			TransformVector (local_modelorg, transformed_modelorg);
+
+			R_RotateBmodel ();	// FIXME: don't mess with the frustum,
+								// make entity passed in
+		}
+
+		pface = (msurface_t *) s->data;
+		if ((s->flags & SURF_DRAWSOLID) &&
+			((s->entity->drawflags & MLS_ABSLIGHT) == MLS_ABSLIGHT || !pface->samples))
+		{
+			byte *pixels = ((byte *)pface->texinfo->texture +
+				pface->texinfo->texture->offsets[0]);
+			int light;
+			if (!r_fullbright.integer)
+			{
+				if ((s->entity->drawflags & MLS_ABSLIGHT) == MLS_ABSLIGHT)
+					light = s->entity->abslight;
+				else
+					light = r_refdef.ambientlight;
+			}
+			else
+				light = 255;
+			if (pe_active)
+				PE_DrawSpans (s, PE_SPAN_FLAT | PE_SPAN_Z |
+						(((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]] << 8),
+						NULL, d_ziorigin, d_zistepu, d_zistepv);
+			else
+				D_DrawSolidSurface (s, ((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]]);
+		}
+		else
+		{
+			miplevel = D_MipLevelForScale (s->nearzi * scale_for_mip
+							* pface->texinfo->mipadjust);
+
+		// FIXME: make this passed in to D_CacheSurface
+			pcurrentcache = D_CacheSurface (pface, miplevel);
+
+			cacheblock = (pixel_t *)pcurrentcache->data;
+			cachewidth = pcurrentcache->width;
+
+			D_CalcGradients (pface);
+
+			if (pe_active)
+			{
+				PE_DrawSpans (s, PE_SPAN_TEX | PE_SPAN_Z, NULL,
+						d_ziorigin, d_zistepu, d_zistepv);
+				pcurrentcache->pe_fence = pe_submitted;
+			}
+			else
+				(*d_drawspans) (s->spans);
+		}
+
+		if (!pe_active)
+			D_DrawZSpans (s->spans);
+
+		if (s->insubmodel)
+		{
+		//
+		// restore the old drawing state
+		// FIXME: we don't want to do this every time!
+		// TODO: speed up
+		//
+			currententity = &r_worldentity;
+			VectorCopy (world_transformed_modelorg,
+						transformed_modelorg);
+			VectorCopy (base_vpn, vpn);
+			VectorCopy (base_vup, vup);
+			VectorCopy (base_vright, vright);
+			VectorCopy (base_modelorg, modelorg);
+			R_TransformFrustum ();
+		}
+	}
+}
+
+/*
+==============
+PE_DrawWorld
+
+Stage B: the pixel engine fills each surface where no earlier one has drawn,
+so the surfaces go out front to back. World surfaces are already in BSP key
+order, brush model surfaces go in at the key of their leaf, and the
+background fills what is left. Translucent surfaces wait for the second
+pass on the CPU.
+==============
+*/
+qboolean	pe_defer_builds;
+
+static void PE_DrawWorldSurface (surf_t *s)
+{
+	r_drawnpolycount++;
+	if (!(s->flags & SURF_TRANSLUCENT))
+		D_DrawOpaqueSurface (s);
+}
+
+void PE_DrawWorld (surf_t *world_end)
+{
+	static surf_t	**bmodels;
+	static int	maxbmodels;
+	int		i, j, numbmodels = surface_p - world_end;
+	surf_t		*s;
+
+	if (numbmodels > maxbmodels)
+	{
+		free (bmodels);
+		maxbmodels = numbmodels * 2;
+		bmodels = (surf_t **) malloc (maxbmodels * sizeof(*bmodels));
+	}
+	for (i = 0; i < numbmodels; i++)
+	{
+		s = world_end + i;
+		for (j = i; j > 0 && (bmodels[j - 1]->key > s->key ||
+			(bmodels[j - 1]->key == s->key && bmodels[j - 1]->nearzi < s->nearzi)); j--)
+		{
+			bmodels[j] = bmodels[j - 1];
+		}
+		bmodels[j] = s;
+	}
+
+	currententity = &r_worldentity;
+	VectorCopy (base_vpn, vpn);
+	VectorCopy (base_vup, vup);
+	VectorCopy (base_vright, vright);
+	VectorCopy (base_modelorg, modelorg);
+	R_TransformFrustum ();
+	TransformVector (modelorg, transformed_modelorg);
+	VectorCopy (transformed_modelorg, world_transformed_modelorg);
+
+	pe_defer_builds = pe_version >= 3;
+	i = 0;
+	for (s = &surfaces[2]; s < world_end; s++)
+	{
+		for ( ; i < numbmodels && bmodels[i]->key < s->key; i++)
+			PE_DrawWorldSurface (bmodels[i]);
+		PE_DrawWorldSurface (s);
+	}
+	for ( ; i < numbmodels; i++)
+		PE_DrawWorldSurface (bmodels[i]);
+	pe_defer_builds = false;
+
+	D_DrawOpaqueSurface (&surfaces[1]);
+}
+
+/*
+==============
 D_DrawSurfaces
 ==============
 */
@@ -232,7 +505,6 @@ void D_DrawSurfaces (qboolean Translucent)
 	surf_t			*s;
 	msurface_t		*pface;
 	surfcache_t		*pcurrentcache;
-	vec3_t			world_transformed_modelorg;
 	vec3_t			local_modelorg;
 	int			count;
 
@@ -266,7 +538,7 @@ void D_DrawSurfaces (qboolean Translucent)
 
 			if (pe_active)
 			{
-				PE_DrawSpans (s->spans, PE_SPAN_FLAT | PE_SPAN_Z | (((intptr_t)s->data & 0xFF) << 8),
+				PE_DrawSpans (s, PE_SPAN_FLAT | PE_SPAN_Z | (((intptr_t)s->data & 0xFF) << 8),
 						NULL, d_ziorigin, d_zistepu, d_zistepv);
 				continue;
 			}
@@ -288,191 +560,7 @@ void D_DrawSurfaces (qboolean Translucent)
 				if (s->flags & SURF_TRANSLUCENT)
 					continue;
 
-				d_zistepu = s->d_zistepu;
-				d_zistepv = s->d_zistepv;
-				d_ziorigin = s->d_ziorigin;
-
-			//	if (!strncmp(pface->texinfo->texture->name,"*BLACK",6))
-				if (s->flags & SURF_DRAWBLACK)	// black vis-breaker, no turb
-				{
-					#if defined (H2W)
-					if (cl_siege)
-						D_DrawSolidSurface (s, SiegeFlatSkyFadeTable[(int)floor(d_lightstylevalue[0]/22)]);
-					else
-					#endif
-					if (pe_active)
-						PE_DrawSpans (s->spans, PE_SPAN_FLAT | PE_SPAN_Z, NULL,
-								d_ziorigin, d_zistepu, d_zistepv);
-					else
-					{
-						D_DrawSolidSurface (s, 0);
-						D_DrawZSpans (s->spans);
-					}
-					continue;
-				}
-				if (s->flags & SURF_DRAWSKY)
-				{
-					if (!r_skymade)
-					{
-						R_MakeSky ();
-					}
-
-					D_DrawSkyScans8 (s->spans);
-					D_DrawZSpans (s->spans);
-				}
-				else if (s->flags & SURF_DRAWBACKGROUND)
-				{
-				// set up a gradient for the background surface that places it
-				// effectively at infinity distance from the viewpoint
-					d_zistepu = 0;
-					d_zistepv = 0;
-					d_ziorigin = -0.9;
-
-					if (pe_active)
-					{
-						PE_DrawSpans (s->spans, PE_SPAN_FLAT | PE_SPAN_Z | ((r_clearcolor.integer & 0xFF) << 8),
-								NULL, d_ziorigin, d_zistepu, d_zistepv);
-					}
-					else
-					{
-						D_DrawSolidSurface (s, r_clearcolor.integer & 0xFF);
-						D_DrawZSpans (s->spans);
-					}
-				}
-				else if (s->flags & SURF_DRAWTURB)
-				{
-					pface = (msurface_t *) s->data;
-					miplevel = 0;
-					cacheblock = (pixel_t *)
-							((byte *)pface->texinfo->texture +
-							pface->texinfo->texture->offsets[0]);
-					cachewidth = 64;
-
-					if (s->insubmodel)
-					{
-					// FIXME: we don't want to do all this for every polygon!
-					// TODO: store once at start of frame
-						currententity = s->entity;	//FIXME: make this passed in to
-													// R_RotateBmodel ()
-						VectorSubtract (r_origin, currententity->origin,
-								local_modelorg);
-						TransformVector (local_modelorg, transformed_modelorg);
-
-						R_RotateBmodel ();	// FIXME: don't mess with the frustum,
-											// make entity passed in
-					}
-
-					D_CalcGradients (pface);
-					if (pe_active)
-					{
-						PE_DrawSpans (s->spans, PE_SPAN_TEX | PE_SPAN_TURB | PE_SPAN_Z,
-								sintable + ((int)(cl.time*SPEED)&(CYCLE-1)),
-								d_ziorigin, d_zistepu, d_zistepv);
-					}
-					else
-					{
-						Turbulent8 (s);
-						D_DrawZSpans (s->spans);
-					}
-
-					if (s->insubmodel)
-					{
-					//
-					// restore the old drawing state
-					// FIXME: we don't want to do this every time!
-					// TODO: speed up
-					//
-						currententity = &r_worldentity;
-						VectorCopy (world_transformed_modelorg,
-									transformed_modelorg);
-						VectorCopy (base_vpn, vpn);
-						VectorCopy (base_vup, vup);
-						VectorCopy (base_vright, vright);
-						VectorCopy (base_modelorg, modelorg);
-						R_TransformFrustum ();
-					}
-				}
-				else
-				{
-					if (s->insubmodel)
-					{
-					// FIXME: we don't want to do all this for every polygon!
-					// TODO: store once at start of frame
-						currententity = s->entity;	//FIXME: make this passed in to
-													// R_RotateBmodel ()
-						VectorSubtract (r_origin, currententity->origin, local_modelorg);
-						TransformVector (local_modelorg, transformed_modelorg);
-
-						R_RotateBmodel ();	// FIXME: don't mess with the frustum,
-											// make entity passed in
-					}
-
-					pface = (msurface_t *) s->data;
-					if ((s->flags & SURF_DRAWSOLID) &&
-						((s->entity->drawflags & MLS_ABSLIGHT) == MLS_ABSLIGHT || !pface->samples))
-					{
-						byte *pixels = ((byte *)pface->texinfo->texture +
-							pface->texinfo->texture->offsets[0]);
-						int light;
-						if (!r_fullbright.integer)
-						{
-							if ((s->entity->drawflags & MLS_ABSLIGHT) == MLS_ABSLIGHT)
-								light = s->entity->abslight;
-							else
-								light = r_refdef.ambientlight;
-						}
-						else
-							light = 255;
-						if (pe_active)
-							PE_DrawSpans (s->spans, PE_SPAN_FLAT | PE_SPAN_Z |
-									(((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]] << 8),
-									NULL, d_ziorigin, d_zistepu, d_zistepv);
-						else
-							D_DrawSolidSurface (s, ((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]]);
-					}
-					else
-					{
-						miplevel = D_MipLevelForScale (s->nearzi * scale_for_mip
-										* pface->texinfo->mipadjust);
-
-					// FIXME: make this passed in to D_CacheSurface
-						pcurrentcache = D_CacheSurface (pface, miplevel);
-
-						cacheblock = (pixel_t *)pcurrentcache->data;
-						cachewidth = pcurrentcache->width;
-
-						D_CalcGradients (pface);
-
-						if (pe_active)
-						{
-							PE_DrawSpans (s->spans, PE_SPAN_TEX | PE_SPAN_Z, NULL,
-									d_ziorigin, d_zistepu, d_zistepv);
-							pcurrentcache->pe_fence = pe_submitted;
-						}
-						else
-							(*d_drawspans) (s->spans);
-					}
-
-					if (!pe_active)
-						D_DrawZSpans (s->spans);
-
-					if (s->insubmodel)
-					{
-					//
-					// restore the old drawing state
-					// FIXME: we don't want to do this every time!
-					// TODO: speed up
-					//
-						currententity = &r_worldentity;
-						VectorCopy (world_transformed_modelorg,
-									transformed_modelorg);
-						VectorCopy (base_vpn, vpn);
-						VectorCopy (base_vup, vup);
-						VectorCopy (base_vright, vright);
-						VectorCopy (base_modelorg, modelorg);
-						R_TransformFrustum ();
-					}
-				}
+				D_DrawOpaqueSurface (s);
 			}
 		}
 		else

@@ -25,14 +25,19 @@ enum {
 	PE_TRIANGLE = 3,
 	PE_PARTICLE = 4,
 	PE_TARGET = 5,
-	PE_SKIN = 6
+	PE_SKIN = 6,
+	PE_COVER = 7,
+	PE_POLY = 8,
+	PE_FILL = 9,
+	PE_DEFER = 11
 };
 
 enum {
 	PE_SPAN_TEX = 1,
 	PE_SPAN_Z = 2,
 	PE_SPAN_TURB = 4,
-	PE_SPAN_FLAT = 8
+	PE_SPAN_FLAT = 8,
+	PE_SPAN_SKY = 16
 };
 
 enum {
@@ -53,6 +58,29 @@ extern qboolean pe_alias;
 extern unsigned pe_submitted;
 extern unsigned pe_synced;
 extern unsigned pe_spans_fence;
+extern qboolean pe_world;
+extern qboolean pe_defer_builds;
+extern int pe_version;
+
+typedef struct
+{
+	edge_t		*edge;
+	int		left;
+} pe_surfedge_t;
+
+extern pe_surfedge_t *pe_surfedges;
+extern int pe_numsurfedges;
+extern int pe_maxsurfedges;
+
+static inline void PE_AddEdge (edge_t *edge, int left)
+{
+	if (pe_numsurfedges < pe_maxsurfedges)
+	{
+		pe_surfedges[pe_numsurfedges].edge = edge;
+		pe_surfedges[pe_numsurfedges].left = left;
+		pe_numsurfedges++;
+	}
+}
 
 static inline unsigned PE_Begin (unsigned op, unsigned words)
 {
@@ -96,8 +124,12 @@ static inline void PE_Finish (void)
 void PE_Init (void);
 void PE_BeginFrame (void);
 void PE_SetSkin (const byte *skin, int skinwidth);
-void PE_DrawSpans (espan_t *spans, int flags, const int *turb,
+void PE_DrawSpans (surf_t *s, int flags, const int *turb,
 		float zorigin, float zstepu, float zstepv);
+void PE_DrawWorld (surf_t *world_end);
+int PE_BeginSurf (surf_t *s, int flags);
+void PE_EndSurf (surf_t *s, int n);
+void PE_DrawSky (surf_t *s);
 void PE_DrawSurfaceBlocks (void);
 void PE_Triangle (const int *p0, const int *p1, const int *p2);
 

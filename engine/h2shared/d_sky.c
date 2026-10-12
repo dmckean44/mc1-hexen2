@@ -22,6 +22,7 @@
 #include "quakedef.h"
 #include "r_local.h"
 #include "d_local.h"
+#include "d_pe.h"
 
 #define SKY_SPAN_SHIFT	5
 #define SKY_SPAN_MAX	(1 << SKY_SPAN_SHIFT)
@@ -148,3 +149,38 @@ void D_DrawSkyScans8 (espan_t *pspan)
 	} while ((pspan = pspan->pnext) != NULL);
 }
 
+
+
+/*
+=================
+PE_DrawSky
+
+The engine's sky mode does D_DrawSkyScans8: the direction D_Sky_uv_To_st
+builds is linear in u and v, so it goes out as three gradients.
+=================
+*/
+void PE_DrawSky (surf_t *s)
+{
+	int	i, n;
+
+	n = PE_BeginSurf (s, PE_SPAN_SKY | PE_SPAN_Z);
+	PE_Ptr (r_skysource);
+	PE_Word (256);
+	PE_Float (skytime * skyspeed);
+	PE_Float (6 * (SKYSIZE / 2 - 1));
+	PE_Word (0);
+	PE_Word (0);
+	for (i = 0; i < 3; i++)
+	{
+		float	k = (i == 2) ? 3 : 1;	/* D_Sky_uv_To_st flattens the sky */
+
+		PE_Float (k * (vpn[i] - xcenter / xscale * vright[i] + ycenter / yscale * vup[i]));
+		PE_Float (k * vright[i] / xscale);
+		PE_Float (k * -vup[i] / yscale);
+	}
+	PE_Float (s->d_ziorigin);
+	PE_Float (s->d_zistepu);
+	PE_Float (s->d_zistepv);
+	PE_Ptr (NULL);
+	PE_EndSurf (s, n);
+}

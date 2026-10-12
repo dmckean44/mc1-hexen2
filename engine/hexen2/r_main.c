@@ -1124,6 +1124,7 @@ static surf_t	lsurfs[NUMSTACKSURFACES + ((CACHE_SIZE - 1) / sizeof(surf_t)) + 1]
 	surf_t	lsurfs[NUMSTACKSURFACES + ((CACHE_SIZE - 1) / sizeof(surf_t)) + 1];
 #endif
 	int	EdgesSize, SurfacesSize;
+	surf_t	*world_end = NULL;
 
 	if (!Translucent)
 	{
@@ -1156,6 +1157,7 @@ static surf_t	lsurfs[NUMSTACKSURFACES + ((CACHE_SIZE - 1) / sizeof(surf_t)) + 1]
 		}
 
 		R_RenderWorld ();
+		world_end = surface_p;
 	}
 	else
 	{
@@ -1208,7 +1210,10 @@ static surf_t	lsurfs[NUMSTACKSURFACES + ((CACHE_SIZE - 1) / sizeof(surf_t)) + 1]
 		}
 	}
 
-	R_ScanEdges (Translucent);
+	if (!Translucent && pe_world)
+		PE_DrawWorld (world_end);
+	else
+		R_ScanEdges (Translucent);
 }
 
 

@@ -285,7 +285,7 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 			&& cache->lightadj[0] == r_drawsurf.lightadj[0]
 			&& cache->lightadj[1] == r_drawsurf.lightadj[1]
 			&& cache->lightadj[2] == r_drawsurf.lightadj[2]
-			&& cache->lightadj[3] == r_drawsurf.lightadj[3] 
+			&& cache->lightadj[3] == r_drawsurf.lightadj[3] && cache->pe_valid 
 			&& !DoSurface)
 		return cache;
 
@@ -332,8 +332,16 @@ surfcache_t *D_CacheSurface (msurface_t *surface, int miplevel)
 	r_drawsurf.surf = surface;
 
 	c_surf++;
+	cache->pe_valid = 1;
 	if (pe_active)
 	{
+		if (pe_defer_builds)
+		{
+			/* built only if the surface's polygon draws a pixel */
+			cache->pe_valid = 0;
+			PE_Begin (PE_DEFER, 1);
+			PE_Ptr (&cache->pe_valid);
+		}
 		PE_DrawSurfaceBlocks ();
 		cache->pe_fence = pe_submitted;
 	}

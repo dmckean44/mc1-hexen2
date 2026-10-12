@@ -110,7 +110,7 @@ typedef struct surf_s
 	qboolean	insubmodel;
 	float		d_ziorigin, d_zistepu, d_zistepv;
 
-	int		pad[2];		// to 64 bytes
+	int		pe_first, pe_count;	// pixel engine edges (was padding to 64 bytes)
 } surf_t;
 
 ASM_LINKAGE_BEGIN
@@ -170,6 +170,7 @@ typedef struct edge_s
 	struct edge_s	*nextremove;
 	float		nearzi;
 	medge_t		*owner;
+	short		v_first, v_last;	// scan lines, for the pixel engine
 } edge_t;
 
 ASM_LINKAGE_BEGIN
