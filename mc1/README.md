@@ -26,3 +26,10 @@ What the port adds:
   scripted benchmark demo on the PC build.
 
 Licensed under the GNU GPL, as uHexen2.
+
+## Hot function order
+
+`hot_functions.txt` lists the functions that run most per byte; the build places them first
+in `.text` so the per-frame code shares the instruction cache. To regenerate it after big
+changes: run `prof/h2prof.sh NAME REF`, then
+`mc1/hotlist.py perf_h2_NAME.log <(mrisc32-elf-nm -S mc1hexen2) 30000 > mc1/hot_functions.txt`.
