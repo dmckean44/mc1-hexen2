@@ -111,6 +111,15 @@ typedef struct clipplane_s
 
 extern	clipplane_t	view_clipplanes[4];
 
+/* Guard band: with the pixel engine clipping to the screen, faces and models
+   only clip against planes PE_GUARD times the field of view. */
+#define PE_GUARD	2.0f
+extern	clipplane_t	guard_clipplanes[4];
+extern	clipplane_t	*r_clipplanes;	/* view_clipplanes or guard_clipplanes */
+extern	int	*pguard_indexes[4];
+extern	int	guard_frustum_indexes[4*6];
+extern	mplane_t	guardedge[4];
+
 //=============================================================================
 
 void R_RenderWorld (void);

@@ -464,6 +464,36 @@ static void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 	{
 		for (i = 0 ; i < 4 ; i++)
 		{
+		/* guard band: bits 4..7 mark the screen edges the node may still
+		   cross, for culling; bits 0..3 the guard planes it may cross */
+			if (clipflags & (0x10 << i))
+			{
+				pindex = pfrustum_indexes[i];
+				rejectpt[0] = (float)node->minmaxs[pindex[0]];
+				rejectpt[1] = (float)node->minmaxs[pindex[1]];
+				rejectpt[2] = (float)node->minmaxs[pindex[2]];
+				d = DotProduct (rejectpt, view_clipplanes[i].normal) - view_clipplanes[i].dist;
+				if (d <= 0)
+					return;
+				acceptpt[0] = (float)node->minmaxs[pindex[3+0]];
+				acceptpt[1] = (float)node->minmaxs[pindex[3+1]];
+				acceptpt[2] = (float)node->minmaxs[pindex[3+2]];
+				d = DotProduct (acceptpt, view_clipplanes[i].normal) - view_clipplanes[i].dist;
+				if (d >= 0)
+				{
+					clipflags &= ~(0x11 << i);	/* on this side of the screen */
+					continue;
+				}
+				pindex = pguard_indexes[i];
+				acceptpt[0] = (float)node->minmaxs[pindex[3+0]];
+				acceptpt[1] = (float)node->minmaxs[pindex[3+1]];
+				acceptpt[2] = (float)node->minmaxs[pindex[3+2]];
+				d = DotProduct (acceptpt, guard_clipplanes[i].normal) - guard_clipplanes[i].dist;
+				if (d >= 0)
+					clipflags &= ~(1 << i);		/* inside the guard band */
+				continue;
+			}
+
 			if (! (clipflags & (1<<i)) )
 				continue;	// don't need to clip against it
 
@@ -565,7 +595,7 @@ static void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 					if ((surf->flags & SURF_PLANEBACK) &&
 						(surf->visframe == r_framecount))
 					{
-						R_RenderFace (surf, clipflags);
+						R_RenderFace (surf, clipflags & 15);
 					}
 
 					surf++;
@@ -578,7 +608,7 @@ static void R_RecursiveWorldNode (mnode_t *node, int clipflags)
 					if (!(surf->flags & SURF_PLANEBACK) &&
 						(surf->visframe == r_framecount))
 					{
-						R_RenderFace (surf, clipflags);
+						R_RenderFace (surf, clipflags & 15);
 					}
 
 					surf++;
@@ -609,6 +639,6 @@ void R_RenderWorld (void)
 	clmodel = currententity->model;
 	r_pcurrentvertbase = clmodel->vertexes;
 
-	R_RecursiveWorldNode (clmodel->nodes, 15);
+	R_RecursiveWorldNode (clmodel->nodes, r_clipplanes == guard_clipplanes ? 0xff : 15);
 }
 

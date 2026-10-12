@@ -105,6 +105,7 @@ float		verticalFieldOfView;
 float		xOrigin, yOrigin;
 
 mplane_t	screenedge[4];
+mplane_t	guardedge[4];	/* screenedge at PE_GUARD times the field of view */
 
 //
 // refresh flags
@@ -275,6 +276,7 @@ void R_Init (void)
 	view_clipplanes[1].rightedge = true;
 	view_clipplanes[1].leftedge = view_clipplanes[2].leftedge = view_clipplanes[3].leftedge = false;
 	view_clipplanes[0].rightedge = view_clipplanes[2].rightedge = view_clipplanes[3].rightedge = false;
+	memcpy (guard_clipplanes, view_clipplanes, sizeof(guard_clipplanes));
 
 	r_refdef.xOrigin = XCENTERING;
 	r_refdef.yOrigin = YCENTERING;
@@ -542,7 +544,12 @@ void R_ViewChanged (float aspect)
 	screenedge[3].type = PLANE_ANYZ;
 
 	for (i = 0; i < 4; i++)
+	{
+		guardedge[i] = screenedge[i];
+		guardedge[i].normal[i < 2 ? 0 : 1] /= PE_GUARD;
 		VectorNormalize (screenedge[i].normal);
+		VectorNormalize (guardedge[i].normal);
+	}
 
 	res_scale = sqrt((double)(r_refdef.vrect.width * r_refdef.vrect.height) / (320.0 * 152.0))
 				* (2.0 / r_refdef.horizontalFieldOfView);
@@ -1210,10 +1217,15 @@ static surf_t	lsurfs[NUMSTACKSURFACES + ((CACHE_SIZE - 1) / sizeof(surf_t)) + 1]
 		}
 	}
 
-	if (!Translucent && pe_world)
+	if (pe_world)
 	{
-		PE_MarkTranslucent ();
-		PE_DrawWorld (world_end);
+		if (Translucent)
+			D_DrawSurfaces (true);
+		else
+		{
+			PE_MarkTranslucent ();
+			PE_DrawWorld (world_end);
+		}
 	}
 	else
 		R_ScanEdges (Translucent);

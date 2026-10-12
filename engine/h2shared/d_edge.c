@@ -572,9 +572,12 @@ void D_DrawSurfaces (qboolean Translucent)
 				PE_Finish ();
 			count = 0;
 
-			for (s = &surfaces[1] ; s < surface_p ; s++)
+			/* stage B draws whole polygons with blending, back to front */
+			for (s = pe_world ? surface_p - 1 : &surfaces[1] ;
+					pe_world ? s > &surfaces[1] : s < surface_p ;
+					pe_world ? s-- : s++)
 			{
-				if (!s->spans || !(s->flags & SURF_TRANSLUCENT))
+				if (!(s->flags & SURF_TRANSLUCENT) || !(pe_world ? s->pe_count : s->spans != NULL))
 					continue;
 
 				count++;

@@ -303,6 +303,17 @@ void R_TransformFrustum (void)
 		VectorCopy (v2, view_clipplanes[i].normal);
 
 		view_clipplanes[i].dist = DotProduct (modelorg, v2);
+
+		v[0] = guardedge[i].normal[2];
+		v[1] = -guardedge[i].normal[0];
+		v[2] = guardedge[i].normal[1];
+
+		v2[0] = v[1]*vright[0] + v[2]*vup[0] + v[0]*vpn[0];
+		v2[1] = v[1]*vright[1] + v[2]*vup[1] + v[0]*vpn[1];
+		v2[2] = v[1]*vright[2] + v[2]*vup[2] + v[0]*vpn[2];
+
+		VectorCopy (v2, guard_clipplanes[i].normal);
+		guard_clipplanes[i].dist = DotProduct (modelorg, v2);
 	}
 }
 
@@ -366,6 +377,18 @@ static void R_SetUpFrustumIndexes (void)
 
 	// FIXME: do just once at start
 		pfrustum_indexes[i] = pindex;
+		pindex += 6;
+	}
+
+	pindex = guard_frustum_indexes;
+	for (i = 0 ; i < 4 ; i++)
+	{
+		for (j = 0 ; j < 3 ; j++)
+		{
+			pindex[j] = guard_clipplanes[i].normal[j] < 0 ? j : j+3;
+			pindex[j+3] = guard_clipplanes[i].normal[j] < 0 ? j+3 : j;
+		}
+		pguard_indexes[i] = pindex;
 		pindex += 6;
 	}
 }

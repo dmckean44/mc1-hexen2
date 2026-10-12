@@ -922,34 +922,17 @@ Output:
 ==============
 PE_MarkTranslucent
 
-Stage B skips the opaque scan, which finds the scan lines that the
-translucent pass has to revisit; take them from the translucent surfaces'
-edges instead.
+Stage B skips the opaque scan, which counts the translucent surfaces that
+make R_RenderView_ run the translucent pass.
 ==============
 */
 void PE_MarkTranslucent (void)
 {
 	surf_t	*s;
-	int	i, v, last;
 
-	memset (TransList, 0, sizeof(TransList));
 	TransCount = 0;
 	for (s = &surfaces[2]; s < surface_p; s++)
-	{
-		if (!(s->flags & SURF_TRANSLUCENT))
-			continue;
-		for (i = 0; i < s->pe_count; i++)
-		{
-			const edge_t	*e = pe_surfedges[s->pe_first + i].edge;
-
-			last = e->v_last < SCAN_SIZE ? e->v_last : SCAN_SIZE - 1;
-			for (v = e->v_first; v <= last; v++)
-			{
-				TransCount += !TransList[v];
-				TransList[v] = true;
-			}
-		}
-	}
+		TransCount += (s->flags & SURF_TRANSLUCENT) != 0;
 }
 
 void R_ScanEdges (qboolean Translucent)

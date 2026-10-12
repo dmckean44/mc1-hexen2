@@ -12,6 +12,7 @@ unsigned	pe_submitted;
 unsigned	pe_synced;
 unsigned	pe_spans_fence;
 qboolean	pe_world;
+qboolean	pe_guard_models;
 int		pe_version;
 pe_surfedge_t	*pe_surfedges;
 int		pe_numsurfedges;
@@ -23,6 +24,7 @@ volatile unsigned	pe_noreg;
 
 /* 1: spans, 2: world faces as polygons (stage B) */
 static cvar_t	r_pe = {"r_pe", "2", CVAR_NONE};
+static cvar_t	r_peguard = {"r_peguard", "1", CVAR_NONE};
 static const byte	*pe_skin, *pe_skintable;
 static int	pe_skinwidth, pe_skinmode;
 
@@ -37,6 +39,7 @@ static unsigned short	pe_order[PE_MAXTRIS];
 void PE_Init (void)
 {
 	Cvar_RegisterVariable (&r_pe);
+	Cvar_RegisterVariable (&r_peguard);
 #if defined(MC1)
 	pe_present = (PE_REG(PE_ID) >> 16) == PE_ID_MAGIC;
 	pe_version = PE_REG(PE_ID) & 0xffff;
@@ -54,6 +57,10 @@ void PE_BeginFrame (void)
 	/* the sky needs version 8; draworder and drawflat stay with the edge sorter */
 	pe_world = pe_active && r_pe.integer >= 2 && pe_version >= 8 &&
 			!r_draworder.integer && !r_drawflat.integer;
+	/* guard band: 1 models, 2 world faces (more faces then reach the engine,
+	   which costs more than the clipping it saves) */
+	r_clipplanes = (pe_world && (r_peguard.integer & 2)) ? guard_clipplanes : view_clipplanes;
+	pe_guard_models = pe_world && (r_peguard.integer & 1);
 	if (!pe_active)
 		return;
 
@@ -221,6 +228,17 @@ void PE_DrawSpans (surf_t *s, int flags, const int *turb,
    where nothing is in front, without writing Z */
 void PE_DrawSpansT (surf_t *s, int flags, const int *turb)
 {
+	if (pe_world)
+	{
+		/* stage B: the whole polygon, Z tested, leaving the coverage alone */
+		PE_Begin (PE_POLY, 22 + 3 * s->pe_count);
+		PE_Word (flags | PE_SPAN_NOCOVER);
+		PE_Word (s->pe_count);
+		PE_SpanWords (turb, d_ziorigin, d_zistepu, d_zistepv);
+		PE_Ptr (mainTransTable);
+		PE_EndSurf (s, s->pe_count);
+		return;
+	}
 	pe_spans_fence = PE_Begin (PE_SPANS, 22);
 	PE_Word (flags);
 	PE_Ptr (s->spans);

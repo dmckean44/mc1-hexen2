@@ -39,6 +39,10 @@ polydesc_t	r_polydesc;
 
 clipplane_t	*entity_clipplanes;
 clipplane_t	view_clipplanes[4];
+clipplane_t	guard_clipplanes[4];
+clipplane_t	*r_clipplanes = view_clipplanes;
+int		*pguard_indexes[4];
+int		guard_frustum_indexes[4*6];
 clipplane_t	world_clipplanes[16];
 
 int		sintable[SIN_BUFFER_SIZE];
@@ -92,6 +96,8 @@ static void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	int		v, v2, ceilv0;
 	float	scale, lzi0, u0, v0;
 	int		side;
+	/* in the guard band, vertices may project off the screen */
+	const qboolean	guard = r_clipplanes == guard_clipplanes;
 
 	if (r_lastvertvalid)
 	{
@@ -116,17 +122,23 @@ static void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	// FIXME: build x/yscale into transform?
 		scale = xscale * lzi0;
 		u0 = (xcenter + scale*transformed[0]);
-		if (u0 < r_refdef.fvrectx_adj)
-			u0 = r_refdef.fvrectx_adj;
-		if (u0 > r_refdef.fvrectright_adj)
-			u0 = r_refdef.fvrectright_adj;
+		if (!guard)
+		{
+			if (u0 < r_refdef.fvrectx_adj)
+				u0 = r_refdef.fvrectx_adj;
+			if (u0 > r_refdef.fvrectright_adj)
+				u0 = r_refdef.fvrectright_adj;
+		}
 
 		scale = yscale * lzi0;
 		v0 = (ycenter - scale*transformed[1]);
-		if (v0 < r_refdef.fvrecty_adj)
-			v0 = r_refdef.fvrecty_adj;
-		if (v0 > r_refdef.fvrectbottom_adj)
-			v0 = r_refdef.fvrectbottom_adj;
+		if (!guard)
+		{
+			if (v0 < r_refdef.fvrecty_adj)
+				v0 = r_refdef.fvrecty_adj;
+			if (v0 > r_refdef.fvrectbottom_adj)
+				v0 = r_refdef.fvrectbottom_adj;
+		}
 
 		ceilv0 = (int) ceilf(v0);
 	}
@@ -144,17 +156,23 @@ static void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 
 	scale = xscale * r_lzi1;
 	r_u1 = (xcenter + scale*transformed[0]);
-	if (r_u1 < r_refdef.fvrectx_adj)
-		r_u1 = r_refdef.fvrectx_adj;
-	if (r_u1 > r_refdef.fvrectright_adj)
-		r_u1 = r_refdef.fvrectright_adj;
+	if (!guard)
+	{
+		if (r_u1 < r_refdef.fvrectx_adj)
+			r_u1 = r_refdef.fvrectx_adj;
+		if (r_u1 > r_refdef.fvrectright_adj)
+			r_u1 = r_refdef.fvrectright_adj;
+	}
 
 	scale = yscale * r_lzi1;
 	r_v1 = (ycenter - scale*transformed[1]);
-	if (r_v1 < r_refdef.fvrecty_adj)
-		r_v1 = r_refdef.fvrecty_adj;
-	if (r_v1 > r_refdef.fvrectbottom_adj)
-		r_v1 = r_refdef.fvrectbottom_adj;
+	if (!guard)
+	{
+		if (r_v1 < r_refdef.fvrecty_adj)
+			r_v1 = r_refdef.fvrecty_adj;
+		if (r_v1 > r_refdef.fvrectbottom_adj)
+			r_v1 = r_refdef.fvrectbottom_adj;
+	}
 
 	if (r_lzi1 > lzi0)
 		lzi0 = r_lzi1;
@@ -217,6 +235,29 @@ static void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	edge->u_step = u_step*0x100000;
 	edge->u = u*0x100000 + 0xFFFFF;
 
+	if (pe_world)
+	{
+		/* the engine sorts the edges and clips them to the screen, so only
+		   keep the rows on it (the guard band lets edges leave it) */
+		if (v < r_refdef.vrect.y)
+		{
+			edge->u += (r_refdef.vrect.y - v) * edge->u_step;
+			v = r_refdef.vrect.y;
+		}
+		if (v2 >= r_refdef.vrectbottom)
+			v2 = r_refdef.vrectbottom - 1;
+		if (v > v2)
+		{
+			/* entirely above or below; still recorded, it may be cached */
+			v = 1;
+			v2 = 0;
+		}
+		edge->v_first = v;
+		edge->v_last = v2;
+		PE_AddEdge (edge, side);
+		return;
+	}
+
 // we need to do this to avoid stepping off the edges if a very nearly
 // horizontal edge is less than epsilon above a scan, and numeric error causes
 // it to incorrectly extend to the scan, and the extension of the line goes off
@@ -227,12 +268,6 @@ static void R_EmitEdge (mvertex_t *pv0, mvertex_t *pv1)
 	if (edge->u > r_refdef.vrectright_adj_shift20)
 		edge->u = r_refdef.vrectright_adj_shift20;
 
-	if (pe_world)
-	{
-		edge->v_first = v;
-		edge->v_last = v2;
-		PE_AddEdge (edge, side);
-	}
 
 //
 // sort the edge in normally
@@ -436,8 +471,8 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 	{
 		if (clipflags & mask)
 		{
-			view_clipplanes[i].next = pclip;
-			pclip = &view_clipplanes[i];
+			r_clipplanes[i].next = pclip;
+			pclip = &r_clipplanes[i];
 		}
 	}
 
@@ -555,7 +590,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 		r_pedge = &tedge;
 		r_lastvertvalid = false;
 		r_nearzionly = true;
-		R_ClipEdge (&r_rightexit, &r_rightenter, view_clipplanes[1].next);
+		R_ClipEdge (&r_rightexit, &r_rightenter, r_clipplanes[1].next);
 	}
 
 // if no edges made it out, return without posting the surface
@@ -639,8 +674,8 @@ void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf)
 	{
 		if (r_clipflags & mask)
 		{
-			view_clipplanes[i].next = pclip;
-			pclip = &view_clipplanes[i];
+			r_clipplanes[i].next = pclip;
+			pclip = &r_clipplanes[i];
 		}
 	}
 
@@ -678,7 +713,7 @@ void R_RenderBmodelFace (bedge_t *pedges, msurface_t *psurf)
 	{
 		r_pedge = &tedge;
 		r_nearzionly = true;
-		R_ClipEdge (&r_rightexit, &r_rightenter, view_clipplanes[1].next);
+		R_ClipEdge (&r_rightexit, &r_rightenter, r_clipplanes[1].next);
 	}
 
 // if no edges made it out, return without posting the surface

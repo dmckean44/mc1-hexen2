@@ -27,6 +27,7 @@ enum {
 	PE_TARGET = 5,
 	PE_SKIN = 6,
 	PE_MESH = 12,
+	PE_VERTS = 14,
 	PE_COVER = 7,
 	PE_POLY = 8,
 	PE_FILL = 9,
@@ -40,7 +41,8 @@ enum {
 	PE_SPAN_TURB = 4,
 	PE_SPAN_FLAT = 8,
 	PE_SPAN_SKY = 16,
-	PE_SPAN_BLEND = 32
+	PE_SPAN_BLEND = 32,
+	PE_SPAN_NOCOVER = 64
 };
 
 /* SKIN mode (version 8) */
@@ -76,6 +78,7 @@ extern unsigned pe_submitted;
 extern unsigned pe_synced;
 extern unsigned pe_spans_fence;
 extern qboolean pe_world;
+extern qboolean pe_guard_models;
 extern qboolean pe_defer_builds;
 extern int pe_version;
 
