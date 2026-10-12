@@ -1211,7 +1211,10 @@ static surf_t	lsurfs[NUMSTACKSURFACES + ((CACHE_SIZE - 1) / sizeof(surf_t)) + 1]
 	}
 
 	if (!Translucent && pe_world)
+	{
+		PE_MarkTranslucent ();
 		PE_DrawWorld (world_end);
+	}
 	else
 		R_ScanEdges (Translucent);
 }

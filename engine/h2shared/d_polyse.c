@@ -260,6 +260,8 @@ void D_PolysetDrawFinalVerts (finalvert_t *pv1, finalvert_t *pv2, finalvert_t *p
 
 void D_PolysetDrawFinalVertsT (finalvert_t *pv1, finalvert_t *pv2, finalvert_t *pv3)
 {
+	if (pe_alias)
+		return;
 	do_PolysetDrawFinalVertsT (pv1);
 	do_PolysetDrawFinalVertsT (pv2);
 	do_PolysetDrawFinalVertsT (pv3);
@@ -267,6 +269,8 @@ void D_PolysetDrawFinalVertsT (finalvert_t *pv1, finalvert_t *pv2, finalvert_t *
 
 void D_PolysetDrawFinalVertsT2 (finalvert_t *pv1, finalvert_t *pv2, finalvert_t *pv3)
 {
+	if (pe_alias)
+		return;
 	do_PolysetDrawFinalVertsT2 (pv1);
 	do_PolysetDrawFinalVertsT2 (pv2);
 	do_PolysetDrawFinalVertsT2 (pv3);
@@ -274,6 +278,8 @@ void D_PolysetDrawFinalVertsT2 (finalvert_t *pv1, finalvert_t *pv2, finalvert_t 
 
 void D_PolysetDrawFinalVertsT3 (finalvert_t *pv1, finalvert_t *pv2, finalvert_t *pv3)
 {
+	if (pe_alias)
+		return;
 	do_PolysetDrawFinalVertsT3 (pv1);
 	do_PolysetDrawFinalVertsT3 (pv2);
 	do_PolysetDrawFinalVertsT3 (pv3);
@@ -281,6 +287,8 @@ void D_PolysetDrawFinalVertsT3 (finalvert_t *pv1, finalvert_t *pv2, finalvert_t 
 
 void D_PolysetDrawFinalVertsT5 (finalvert_t *pv1, finalvert_t *pv2, finalvert_t *pv3)
 {
+	if (pe_alias)
+		return;
 	do_PolysetDrawFinalVertsT5 (pv1);
 	do_PolysetDrawFinalVertsT5 (pv2);
 	do_PolysetDrawFinalVertsT5 (pv3);
@@ -1091,6 +1099,12 @@ void D_PolysetDraw (void)
 
 void D_PolysetDrawT (void)
 {
+	if (pe_alias)
+	{
+		PE_PolysetDraw ();
+		return;
+	}
+
 	a_spans = (spanpackage_t *)
 			(((intptr_t)&spans[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 
@@ -1106,6 +1120,12 @@ void D_PolysetDrawT (void)
 
 void D_PolysetDrawT2 (void)
 {
+	if (pe_alias)
+	{
+		PE_PolysetDraw ();
+		return;
+	}
+
 	a_spans = (spanpackage_t *)
 			(((intptr_t)&spans[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 
@@ -1121,6 +1141,12 @@ void D_PolysetDrawT2 (void)
 
 void D_PolysetDrawT3 (void)
 {
+	if (pe_alias)
+	{
+		PE_PolysetDraw ();
+		return;
+	}
+
 	a_spans = (spanpackage_t *)
 			(((intptr_t)&spans[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 
@@ -1136,6 +1162,12 @@ void D_PolysetDrawT3 (void)
 
 void D_PolysetDrawT5 (void)
 {
+	if (pe_alias)
+	{
+		PE_PolysetDraw ();
+		return;
+	}
+
 	a_spans = (spanpackage_t *)
 			(((intptr_t)&spans[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
 

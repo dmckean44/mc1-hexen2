@@ -359,10 +359,91 @@ void R_DrawSurface (void)
 
 /*
 ================
+PE_LitSurfaceFits
+
+A version 8 engine builds the light map itself (LITSURF) as R_BuildLightMap
+does, except for full bright, absolute light and dark or negative lights.
+================
+*/
+static int	pe_numdlights;
+static int	pe_dlights[MAX_DLIGHTS];
+
+static qboolean PE_LitSurfaceFits (void)
+{
+	msurface_t	*surf = r_drawsurf.surf;
+	int		lnum;
+
+	if (pe_version < 8 || r_fullbright.integer || !cl.worldmodel->lightdata ||
+			(currententity->drawflags & MLS_ABSLIGHT) == MLS_ABSLIGHT ||
+			(surf->extents[0] >> 4) + 1 > 17 || (surf->extents[1] >> 4) + 1 > 17)
+		return false;
+
+	pe_numdlights = 0;
+	if (surf->dlightframe != r_framecount || !r_dynamic.integer)
+		return true;
+	for (lnum = 0; lnum < MAX_DLIGHTS; lnum++)
+	{
+		if (!(surf->dlightbits & (1 << lnum)))
+			continue;
+		if (cl_dlights[lnum].dark || cl_dlights[lnum].radius < 0)
+			return false;
+		pe_dlights[pe_numdlights++] = lnum;
+	}
+	return true;
+}
+
+static void PE_BeginLitSurface (void)
+{
+	PE_Begin (PE_LITSURF, 17 + 4 * pe_numdlights);
+}
+
+/* words 10 and on of LITSURF: the light maps and the dynamic lights, as
+   R_AddDynamicLights finds them */
+static void PE_EndLitSurface (void)
+{
+	msurface_t	*surf = r_drawsurf.surf;
+	int		maps, i, k;
+
+	for (maps = 0; surf->samples && maps < MAXLIGHTMAPS && surf->styles[maps] != 255; maps++)
+		;
+	PE_Ptr (surf->samples);
+	PE_Word (maps | PE_LITSURF_MONO | (r_refdef.ambientlight << 24));
+	for (i = 0; i < 4; i++)
+		PE_Word (i < maps ? r_drawsurf.lightadj[i] : 0);
+	PE_Word (pe_numdlights | PE_LITSURF_QUAKE_ADD);
+	for (k = 0; k < pe_numdlights; k++)
+	{
+		dlight_t	*dl = &cl_dlights[pe_dlights[k]];
+		mtexinfo_t	*tex = surf->texinfo;
+		float		dist, rad, minlight;
+		vec3_t		impact;
+
+		rad = dl->radius;
+		dist = DotProduct (dl->origin, surf->plane->normal) - surf->plane->dist;
+		rad -= fabs(dist);
+		minlight = dl->minlight;
+		if (rad < minlight)
+		{
+			/* out of reach: a light that adds nothing */
+			rad = minlight = 0;
+		}
+		minlight = rad - minlight;
+		for (i = 0; i < 3; i++)
+			impact[i] = dl->origin[i] - surf->plane->normal[i] * dist;
+		PE_Float (rad);
+		PE_Float (minlight);
+		PE_Float (DotProduct (impact, tex->vecs[0]) + tex->vecs[0][3] - surf->texturemins[0]);
+		PE_Float (DotProduct (impact, tex->vecs[1]) + tex->vecs[1][3] - surf->texturemins[1]);
+	}
+}
+
+/*
+================
 PE_DrawSurfaceBlocks
 
-R_DrawSurface on the pixel engine. Its blocks interpolate the light from the
-left edge, ours from the right, so texels can differ by one light step.
+R_DrawSurface on the pixel engine. Before version 8 its blocks interpolate
+the light from the left edge, ours from the right, so texels can differ by
+one light step.
 ================
 */
 void PE_DrawSurfaceBlocks (void)
@@ -378,12 +459,18 @@ void PE_DrawSurfaceBlocks (void)
 	int		lightwidth = (r_drawsurf.surf->extents[0] >> 4) + 1;
 	int		soffset, toffset, u, v;
 
-	R_BuildLightMap ();
+	qboolean	lit = PE_LitSurfaceFits ();
+
+	if (!lit)
+		R_BuildLightMap ();
 
 	soffset = ((r_drawsurf.surf->texturemins[0] >> mip) + (texwidth << 16)) % texwidth;
 	toffset = ((r_drawsurf.surf->texturemins[1] >> mip) + (tmax << 16)) % tmax;
 
-	PE_Begin (PE_SURFACE, 10 + (numh + 1) * (numv + 1));
+	if (lit)
+		PE_BeginLitSurface ();
+	else
+		PE_Begin (PE_SURFACE, 10 + (numh + 1) * (numv + 1));
 	PE_Ptr (source);
 	PE_Word (texwidth);
 	PE_Word (tmax);
@@ -391,9 +478,14 @@ void PE_DrawSurfaceBlocks (void)
 	PE_Ptr (source + toffset * texwidth);
 	PE_Word (numh);
 	PE_Word (numv);
-	PE_Word (level);
+	PE_Word (level | (pe_version >= 8 ? 0x100 : 0));	/* rows lit from the right, as here */
 	PE_Ptr (r_drawsurf.surfdat);
 	PE_Word (r_drawsurf.rowbytes);
+	if (lit)
+	{
+		PE_EndLitSurface ();
+		return;
+	}
 	for (v = 0; v <= numv; v++)
 	{
 		for (u = 0; u <= numh; u++)

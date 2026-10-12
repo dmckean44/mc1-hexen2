@@ -21,6 +21,10 @@
 #include "quakedef.h"
 #include "r_local.h"
 #include "d_pe.h"
+
+static int		pe_mode;
+static const byte	*pe_table;
+static qboolean	pe_mesh;
 #include "d_local.h"	// FIXME: shouldn't be needed (is needed for patch
 			//	  right now, but that should move)
 
@@ -903,6 +907,10 @@ void R_AliasPrepareUnclippedPoints (void)
 					((byte *)paliashdr + paliashdr->triangles);
 	r_affinetridesc.numtriangles = 1;//pmdl->numtris;
 
+	if (pe_mesh && PE_DrawMesh (pfinalverts, r_affinetridesc.ptriangles, pmdl->numtris,
+			pstverts, r_affinetridesc.seamfixupX16))
+		return;
+
 	ptri = (mtriangle_t *)((byte *)paliashdr + paliashdr->triangles);
 	for (i = 0 ; i < pmdl->numtris ; i++, ptri++)
 	{
@@ -1265,11 +1273,38 @@ void R_AliasDrawModel (alight_t *plighting)
 		}
 	}
 
-	pe_alias = pe_active && acolormap == vid.colormap &&
-		!(currententity->model->flags & (EF_SPECIAL_TRANS | EF_TRANSPARENT | EF_HOLEY)) &&
-		!(currententity->drawflags & DRF_TRANSLUCENT);
+	/* the engine's skin modes match D_PolysetDrawT5, T, T2 and T3 */
+	pe_mode = 0;
+	pe_table = NULL;
+	if (currententity->model->flags & EF_SPECIAL_TRANS)
+	{
+		pe_mode = PE_SKIN_SKIP0 | PE_SKIN_BLEND_TEXEL;
+		pe_table = transTable;
+	}
+	else if (currententity->drawflags & DRF_TRANSLUCENT)
+	{
+		pe_mode = PE_SKIN_SKIP0 | PE_SKIN_BLEND_LIT;
+		pe_table = mainTransTable;
+	}
+	else if (currententity->model->flags & EF_TRANSPARENT)
+	{
+		pe_mode = PE_SKIN_SKIP0 | PE_SKIN_BLEND_ODD;
+		pe_table = mainTransTable;
+	}
+	else if (currententity->model->flags & EF_HOLEY)
+		pe_mode = PE_SKIN_SKIP0;
+
+	pe_alias = pe_active && acolormap == vid.colormap && (!pe_mode || pe_version >= 8);
+	pe_mesh = false;
 	if (pe_alias)
-		PE_SetSkin (r_affinetridesc.pskin, r_affinetridesc.skinwidth);
+	{
+		PE_SetSkin (r_affinetridesc.pskin, r_affinetridesc.skinwidth, pe_mode, pe_table);
+		if (currententity->trivial_accept && pe_version >= 8)
+		{
+			pfinalverts = PE_AllocVerts (pmdl->numverts);
+			pe_mesh = true;
+		}
+	}
 	else
 		PE_Finish ();
 

@@ -26,9 +26,11 @@ enum {
 	PE_PARTICLE = 4,
 	PE_TARGET = 5,
 	PE_SKIN = 6,
+	PE_MESH = 12,
 	PE_COVER = 7,
 	PE_POLY = 8,
 	PE_FILL = 9,
+	PE_LITSURF = 10,
 	PE_DEFER = 11
 };
 
@@ -37,8 +39,23 @@ enum {
 	PE_SPAN_Z = 2,
 	PE_SPAN_TURB = 4,
 	PE_SPAN_FLAT = 8,
-	PE_SPAN_SKY = 16
+	PE_SPAN_SKY = 16,
+	PE_SPAN_BLEND = 32
 };
+
+/* SKIN mode (version 8) */
+enum {
+	PE_SKIN_SKIP0 = 1,		/* texel 0 is transparent */
+	PE_SKIN_BLEND_LIT = 2,		/* table[lit * 256 + dst] */
+	PE_SKIN_BLEND_ODD = 4,		/* the same for odd texels, others opaque */
+	PE_SKIN_BLEND_TEXEL = 6		/* table[texel * 256 + dst], unlit */
+};
+
+#define PE_MESH_HEXEN2	2
+
+/* LITSURF (version 8): one-byte light samples, dynamic lights added as integers */
+#define PE_LITSURF_MONO		0x100
+#define PE_LITSURF_QUAKE_ADD	0x20000
 
 enum {
 	PE_PARTICLE_OPAQUE = 0,
@@ -123,10 +140,14 @@ static inline void PE_Finish (void)
 
 void PE_Init (void);
 void PE_BeginFrame (void);
-void PE_SetSkin (const byte *skin, int skinwidth);
+void PE_SetSkin (const byte *skin, int skinwidth, int mode, const byte *table);
+finalvert_t *PE_AllocVerts (int n);
+qboolean PE_DrawMesh (finalvert_t *verts, mtriangle_t *tris, int numtris, stvert_t *stverts, int seamfixup);
 void PE_DrawSpans (surf_t *s, int flags, const int *turb,
 		float zorigin, float zstepu, float zstepv);
 void PE_DrawWorld (surf_t *world_end);
+void PE_MarkTranslucent (void);
+void PE_DrawSpansT (surf_t *s, int flags, const int *turb);
 int PE_BeginSurf (surf_t *s, int flags);
 void PE_EndSurf (surf_t *s, int n);
 void PE_DrawSky (surf_t *s);

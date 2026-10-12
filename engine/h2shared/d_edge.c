@@ -565,7 +565,11 @@ void D_DrawSurfaces (qboolean Translucent)
 		}
 		else
 		{
-			PE_Finish ();
+			/* a version 8 engine blends; before that the CPU does */
+			qboolean	eng = pe_active && pe_version >= 8;
+
+			if (!eng)
+				PE_Finish ();
 			count = 0;
 
 			for (s = &surfaces[1] ; s < surface_p ; s++)
@@ -587,8 +591,13 @@ void D_DrawSurfaces (qboolean Translucent)
 						D_DrawSolidSurface (s, SiegeFlatSkyFadeTable[(int)floor(d_lightstylevalue[0]/22)]);
 					else
 					#endif
+					if (eng)
+						PE_DrawSpansT (s, PE_SPAN_FLAT | PE_SPAN_Z, NULL);
+					else
+					{
 						D_DrawSolidSurface (s, 0);
-					D_DrawZSpans (s->spans);
+						D_DrawZSpans (s->spans);
+					}
 					continue;
 				}
 				if (s->flags & SURF_DRAWTURB)
@@ -615,7 +624,12 @@ void D_DrawSurfaces (qboolean Translucent)
 					}
 
 					D_CalcGradients (pface);
-					Turbulent8 (s);
+					if (eng)
+						PE_DrawSpansT (s, PE_SPAN_TEX | PE_SPAN_TURB |
+								((r_transwater.integer && (s->flags & SURF_TRANSLUCENT)) ? PE_SPAN_BLEND : 0),
+								sintable + ((int)(cl.time*SPEED)&(CYCLE-1)));
+					else
+						Turbulent8 (s);
 				//	D_DrawZSpans (s->spans);
 
 					if (s->insubmodel)
@@ -666,7 +680,11 @@ void D_DrawSurfaces (qboolean Translucent)
 						}
 						else
 							light = 255;
-						D_DrawSolidSurfaceT (s, ((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]]);
+						if (eng)
+							PE_DrawSpansT (s, PE_SPAN_FLAT | PE_SPAN_BLEND |
+									(((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]] << 8), NULL);
+						else
+							D_DrawSolidSurfaceT (s, ((unsigned char *)vid.colormap)[(((255-light)<<VID_CBITS) & 0xFF00) + pixels[0]]);
 					}
 					else
 					{
@@ -682,6 +700,12 @@ void D_DrawSurfaces (qboolean Translucent)
 						D_CalcGradients (pface);
 
 					//	(*d_drawspans) (s->spans);
+						if (eng)
+						{
+							PE_DrawSpansT (s, PE_SPAN_TEX | PE_SPAN_BLEND, NULL);
+							pcurrentcache->pe_fence = pe_submitted;
+						}
+						else
 #if id386
 						D_DrawSpans16T(s->spans);
 #else

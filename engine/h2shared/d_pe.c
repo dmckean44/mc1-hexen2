@@ -23,8 +23,16 @@ volatile unsigned	pe_noreg;
 
 /* 1: spans, 2: world faces as polygons (stage B) */
 static cvar_t	r_pe = {"r_pe", "2", CVAR_NONE};
-static const byte	*pe_skin;
-static int	pe_skinwidth;
+static const byte	*pe_skin, *pe_skintable;
+static int	pe_skinwidth, pe_skinmode;
+
+/* model vertices the engine reads after the model is done (MESH) */
+#define PE_VERTPOOL	16384
+static finalvert_t	pe_vertpool[PE_VERTPOOL];
+static int	pe_vertpos;
+static unsigned	pe_mesh_fence;
+#define PE_MAXTRIS	4096
+static unsigned short	pe_order[PE_MAXTRIS];
 
 void PE_Init (void)
 {
@@ -75,15 +83,67 @@ void PE_BeginFrame (void)
 	}
 }
 
-void PE_SetSkin (const byte *skin, int skinwidth)
+void PE_SetSkin (const byte *skin, int skinwidth, int mode, const byte *table)
 {
-	if (skin == pe_skin && skinwidth == pe_skinwidth)
+	if (skin == pe_skin && skinwidth == pe_skinwidth && mode == pe_skinmode && table == pe_skintable)
 		return;
 	pe_skin = skin;
 	pe_skinwidth = skinwidth;
-	PE_Begin (PE_SKIN, 2);
-	PE_Ptr (skin);
-	PE_Word (skinwidth);
+	pe_skinmode = mode;
+	pe_skintable = table;
+	if (pe_version >= 8)
+	{
+		PE_Begin (PE_SKIN, 4);
+		PE_Ptr (skin);
+		PE_Word (skinwidth);
+		PE_Word (mode);
+		PE_Ptr (table);
+	}
+	else
+	{
+		PE_Begin (PE_SKIN, 2);
+		PE_Ptr (skin);
+		PE_Word (skinwidth);
+	}
+}
+
+finalvert_t *PE_AllocVerts (int n)
+{
+	finalvert_t	*v;
+
+	if (pe_vertpos + n > PE_VERTPOOL)
+	{
+		PE_WaitFor (pe_mesh_fence);
+		pe_vertpos = 0;
+	}
+	v = &pe_vertpool[pe_vertpos];
+	pe_vertpos += n;
+	return v;
+}
+
+/* all the triangles of an unclipped model, s and t from the stverts */
+qboolean PE_DrawMesh (finalvert_t *verts, mtriangle_t *tris, int numtris, stvert_t *stverts, int seamfixup)
+{
+	int	i;
+
+	if (pe_version < 8 || numtris > PE_MAXTRIS)
+		return false;
+	if (!pe_order[1])
+	{
+		for (i = 0; i < PE_MAXTRIS; i++)
+			pe_order[i] = i;
+	}
+	pe_mesh_fence = PE_Begin (PE_MESH, 9);
+	PE_Ptr (verts);
+	PE_Word (sizeof(finalvert_t));
+	PE_Ptr (tris);
+	PE_Ptr (pe_order);
+	PE_Word (numtris);
+	PE_Ptr (stverts);
+	PE_Word (PE_MESH_HEXEN2);
+	PE_Word (0);		/* unclipped, so the flags hold nothing for the engine */
+	PE_Word (seamfixup);
+	return true;
 }
 
 /* A surface command's first two words: its spans, or in stage B its screen
@@ -124,12 +184,8 @@ void PE_EndSurf (surf_t *s, int n)
 	}
 }
 
-/* one surface with the gradients D_CalcGradients left behind */
-void PE_DrawSpans (surf_t *s, int flags, const int *turb,
-		float zorigin, float zstepu, float zstepv)
+static void PE_SpanWords (const int *turb, float zorigin, float zstepu, float zstepv)
 {
-	int	n = PE_BeginSurf (s, flags);
-
 	PE_Ptr (cacheblock);
 	PE_Word (cachewidth);
 	PE_Word (sadjust);
@@ -149,7 +205,27 @@ void PE_DrawSpans (surf_t *s, int flags, const int *turb,
 	PE_Float (zstepu);
 	PE_Float (zstepv);
 	PE_Ptr (turb);
+}
+
+/* one surface with the gradients D_CalcGradients left behind */
+void PE_DrawSpans (surf_t *s, int flags, const int *turb,
+		float zorigin, float zstepu, float zstepv)
+{
+	int	n = PE_BeginSurf (s, flags);
+
+	PE_SpanWords (turb, zorigin, zstepu, zstepv);
 	PE_EndSurf (s, n);
+}
+
+/* the translucent pass (version 8): spans blended through mainTransTable
+   where nothing is in front, without writing Z */
+void PE_DrawSpansT (surf_t *s, int flags, const int *turb)
+{
+	pe_spans_fence = PE_Begin (PE_SPANS, 22);
+	PE_Word (flags);
+	PE_Ptr (s->spans);
+	PE_SpanWords (turb, d_ziorigin, d_zistepu, d_zistepv);
+	PE_Ptr (mainTransTable);
 }
 
 void PE_Triangle (const int *p0, const int *p1, const int *p2)
