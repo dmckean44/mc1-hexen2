@@ -697,15 +697,66 @@ static void D_SpriteCalculateGradients (void)
 D_DrawSprite
 =====================
 */
+/* Sprite span lists drawn by the engine: each sprite gets its own part of the
+   pool, which is only reused from the start once the engine is done with the
+   last sprite. */
+#define SPRITE_POOL	(4 * (MAXHEIGHT + 1))
+static sspan_t	sprite_pool[SPRITE_POOL];
+static int	sprite_next;
+static unsigned	sprite_fence;
+
+static sspan_t *D_SpriteSpans (void)
+{
+	if (sprite_next + MAXHEIGHT + 1 > SPRITE_POOL)
+	{
+		PE_WaitFor (sprite_fence);
+		sprite_next = 0;
+	}
+	return &sprite_pool[sprite_next];
+}
+
+/* SPRITE with Quake's spans (bit 16): opaque with Z writes (32), translucent through
+   mainTransTable (blend 3), or EF_TRANSPARENT, odd texels blended (64) */
+static void D_SendSprite (sspan_t *spans, int mode)
+{
+	sspan_t	*end = spans;
+
+	while (end->count != DS_SPAN_LIST_END)
+		end++;
+	sprite_next += end - spans + 1;
+	sprite_fence = PE_Begin (PE_SPRITE, 19);
+	PE_Ptr (spans);
+	PE_Ptr (cacheblock);
+	PE_Word (cachewidth);
+	PE_Word (sadjust);
+	PE_Word (tadjust);
+	PE_Word (bbextents);
+	PE_Word (bbextentt);
+	PE_Float (d_sdivzorigin);
+	PE_Float (d_sdivzstepu);
+	PE_Float (d_sdivzstepv);
+	PE_Float (d_tdivzorigin);
+	PE_Float (d_tdivzstepu);
+	PE_Float (d_tdivzstepv);
+	PE_Float (d_ziorigin);
+	PE_Float (d_zistepu);
+	PE_Float (d_zistepv);
+	PE_Word (mode);
+	PE_Word (0);
+	PE_Ptr (mainTransTable);
+}
+
 void D_DrawSprite (void)
 {
-	PE_Finish ();
 	int			i, nump;
 	float		ymin, ymax;
 	emitpoint_t	*pverts;
 	sspan_t		spans[MAXHEIGHT+1];
+	const qboolean	engine = pe_sprites;
 
-	sprite_spans = spans;
+	if (!engine)
+		PE_Finish ();
+	sprite_spans = engine ? D_SpriteSpans () : spans;
 
 // find the top and bottom vertices, and make sure there's at least one scan to
 // draw
@@ -762,7 +813,10 @@ void D_DrawSprite (void)
 	D_SpriteScanLeftEdge ();
 	D_SpriteScanRightEdge ();
 
-	if (currententity->drawflags & DRF_TRANSLUCENT)
+	if (engine)
+		D_SendSprite (sprite_spans, (currententity->drawflags & DRF_TRANSLUCENT) ? 16 | 3 :
+				(currententity->model->flags & EF_TRANSPARENT) ? 16 | 64 | 3 : 16 | 32);
+	else if (currententity->drawflags & DRF_TRANSLUCENT)
 		D_SpriteDrawSpansT (sprite_spans);
 	else if (currententity->model->flags & EF_TRANSPARENT)
 		D_SpriteDrawSpansT2 (sprite_spans);

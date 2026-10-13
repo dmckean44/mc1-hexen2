@@ -27,6 +27,7 @@ enum {
 	PE_TARGET = 5,
 	PE_SKIN = 6,
 	PE_MESH = 12,
+	PE_SPRITE = 13,
 	PE_VERTS = 14,
 	PE_COVER = 7,
 	PE_POLY = 8,
@@ -84,6 +85,7 @@ extern qboolean pe_world;
 extern qboolean pe_face;	/* world faces go out whole, as FACE (version 10) */
 extern qboolean pe_faceclip;	/* FACE mip levels from the face clipped to the screen */
 extern qboolean pe_guard_models;
+extern qboolean pe_sprites;	/* sprites as SPRITE commands (version 16) */
 extern qboolean pe_defer_builds;
 extern int pe_version;
 

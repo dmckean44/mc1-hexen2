@@ -15,6 +15,7 @@ qboolean	pe_world;
 qboolean	pe_face;
 qboolean	pe_faceclip;
 qboolean	pe_guard_models;
+qboolean	pe_sprites;
 int		pe_version;
 pe_surfedge_t	*pe_surfedges;
 int		pe_numsurfedges;
@@ -27,6 +28,7 @@ volatile unsigned	pe_noreg;
 /* 1: spans, 2: world faces as polygons (stage B) */
 static cvar_t	r_pe = {"r_pe", "2", CVAR_NONE};
 static cvar_t	r_peguard = {"r_peguard", "1", CVAR_NONE};
+static cvar_t	r_pesprite = {"r_pesprite", "1", CVAR_NONE};
 static cvar_t	r_pefaceclip = {"r_pefaceclip", "0", CVAR_NONE};
 static const byte	*pe_skin, *pe_skintable;
 static int	pe_skinwidth, pe_skinmode;
@@ -43,6 +45,7 @@ void PE_Init (void)
 {
 	Cvar_RegisterVariable (&r_pe);
 	Cvar_RegisterVariable (&r_peguard);
+	Cvar_RegisterVariable (&r_pesprite);
 	Cvar_RegisterVariable (&r_pefaceclip);
 #if defined(MC1)
 	pe_present = (PE_REG(PE_ID) >> 16) == PE_ID_MAGIC;
@@ -93,6 +96,7 @@ void PE_BeginFrame (void)
 	   which costs more than the clipping it saves) */
 	r_clipplanes = (pe_world && (r_peguard.integer & 2)) ? guard_clipplanes : view_clipplanes;
 	pe_guard_models = pe_world && (r_peguard.integer & 1);
+	pe_sprites = pe_active && pe_version >= 16 && r_pesprite.integer;
 	if (!pe_active)
 		return;
 

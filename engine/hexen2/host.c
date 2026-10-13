@@ -370,6 +370,7 @@ static void Host_InitLocal (void)
 	Cvar_RegisterVariable (&sys_adaptive);
 
 	Cvar_RegisterVariable (&host_framerate);
+	Cvar_RegisterVariable (&prof_frames);
 	Cvar_RegisterVariable (&host_speeds);
 
 	Cvar_RegisterVariable (&serverprofile);
@@ -667,7 +668,7 @@ static qboolean Host_FilterTime (float time)
 {
 	realtime += time;
 
-	if (!cls.timedemo && realtime - oldrealtime < 1.0/72.0)
+	if (!cls.timedemo && prof_frames.value <= 0 && realtime - oldrealtime < 1.0/72.0)
 		return false;		// framerate is too high
 
 	host_frametime = realtime - oldrealtime;
@@ -949,6 +950,7 @@ static void _Host_Frame (float time)
 					pass1+pass2+pass3, pass1, pass2, pass3);
 	}
 
+	CL_ProfGameFrame ();
 	host_framecount++;
 }
 
