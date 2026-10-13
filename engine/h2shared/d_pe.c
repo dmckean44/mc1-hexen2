@@ -13,6 +13,7 @@ unsigned	pe_synced;
 unsigned	pe_spans_fence;
 qboolean	pe_world;
 qboolean	pe_face;
+qboolean	pe_faceclip;
 qboolean	pe_guard_models;
 int		pe_version;
 pe_surfedge_t	*pe_surfedges;
@@ -26,6 +27,7 @@ volatile unsigned	pe_noreg;
 /* 1: spans, 2: world faces as polygons (stage B) */
 static cvar_t	r_pe = {"r_pe", "2", CVAR_NONE};
 static cvar_t	r_peguard = {"r_peguard", "1", CVAR_NONE};
+static cvar_t	r_pefaceclip = {"r_pefaceclip", "0", CVAR_NONE};
 static const byte	*pe_skin, *pe_skintable;
 static int	pe_skinwidth, pe_skinmode;
 
@@ -41,6 +43,7 @@ void PE_Init (void)
 {
 	Cvar_RegisterVariable (&r_pe);
 	Cvar_RegisterVariable (&r_peguard);
+	Cvar_RegisterVariable (&r_pefaceclip);
 #if defined(MC1)
 	pe_present = (PE_REG(PE_ID) >> 16) == PE_ID_MAGIC;
 	pe_version = PE_REG(PE_ID) & 0xffff;
@@ -91,6 +94,7 @@ void PE_BeginFrame (void)
 	}
 
 	pe_face = pe_world && pe_version >= 10;
+	pe_faceclip = r_pefaceclip.integer != 0;
 	if (pe_face)
 	{
 		const float	cx = xcenter, cy = ycenter;
