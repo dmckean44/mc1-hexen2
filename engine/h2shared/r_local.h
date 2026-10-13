@@ -339,5 +339,6 @@ void R_MarkLights (dlight_t *light, int bit, mnode_t *node);
 
 #endif	/* !GLQUAKE	*/
 
-#endif	/* R_LOCAL_H	*/
+void R_MarkDlightsVis (void);
 
+#endif	/* R_LOCAL_H	*/

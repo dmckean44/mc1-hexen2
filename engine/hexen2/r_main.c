@@ -1260,6 +1260,7 @@ static void R_RenderView_ (void)
 	SetVisibilityByPassages ();
 #else
 	R_MarkLeaves ();	// done here so we know if we're in water
+	R_MarkDlightsVis ();	// lights only reach surfaces that can be seen
 #endif
 
 // make FDIV fast. This reduces timing precision after we've been running for a
