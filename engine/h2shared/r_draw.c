@@ -461,6 +461,83 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 		return;
 	}
 
+	if (pe_face && !insubmodel && !(fa->flags & SURF_TRANSLUCENT) &&
+			!(currententity->drawflags & DRF_TRANSLUCENT))
+	{
+		/* The engine clips and projects the whole face (FACE). The mip level wants
+		   the nearest 1/z of the visible part, no nearer than z = 1, so faces that
+		   cross a screen edge are clipped here (positions only). */
+		const unsigned	vmask = (r_clipplanes == guard_clipplanes ? clipflags >> 4 : clipflags) & 15;
+		unsigned	outside = vmask;	/* screen planes every vertex is behind */
+		vec3_t		pts[2][64];
+		int		n = 0, p = 0;
+
+		for (i = 0; i < fa->numedges && i < 64; i++)
+		{
+			const int lindex = currententity->model->surfedges[fa->firstedge + i];
+			const medge_t *e = &currententity->model->edges[lindex > 0 ? lindex : -lindex];
+			const float *pos = r_pcurrentvertbase[lindex > 0 ? e->v[0] : e->v[1]].position;
+
+			VectorCopy (pos, pts[0][n]);
+			n++;
+			for (unsigned k = 0; k < 4; k++)
+			{
+				if ((outside & (1u << k)) &&
+					DotProduct(pos, view_clipplanes[k].normal) - view_clipplanes[k].dist >= 0)
+					outside &= ~(1u << k);
+			}
+		}
+		if (outside)
+			return;	/* entirely off the screen */
+		for (unsigned k = 0; k < 4 && n >= 3; k++)
+		{
+			const clipplane_t *cp = &view_clipplanes[k];
+			int	m = 0;
+
+			if (!(vmask & (1u << k)))
+				continue;
+			for (i = 0; i < n && m < 62; i++)
+			{
+				const float *a = pts[p][i], *b = pts[p][i + 1 < n ? i + 1 : 0];
+				const float da = DotProduct(a, cp->normal) - cp->dist;
+				const float db = DotProduct(b, cp->normal) - cp->dist;
+
+				if (da >= 0)
+				{
+					VectorCopy (a, pts[p ^ 1][m]);
+					m++;
+				}
+				if ((da >= 0) != (db >= 0))
+				{
+					const float f = da / (da - db);
+					pts[p ^ 1][m][0] = a[0] + f * (b[0] - a[0]);
+					pts[p ^ 1][m][1] = a[1] + f * (b[1] - a[1]);
+					pts[p ^ 1][m][2] = a[2] + f * (b[2] - a[2]);
+					m++;
+				}
+			}
+			p ^= 1;
+			n = m;
+		}
+		if (n < 3)
+			return;
+		r_nearzi = 0;
+		for (i = 0; i < n; i++)
+		{
+			float z = (pts[p][i][0] - modelorg[0]) * vpn[0] + (pts[p][i][1] - modelorg[1]) * vpn[1] +
+				(pts[p][i][2] - modelorg[2]) * vpn[2];
+
+			if (z < 1.0f)
+				z = 1.0f;
+			if (1.0f / z > r_nearzi)
+				r_nearzi = 1.0f / z;
+		}
+		c_faceclip++;
+		surface_p->pe_first = 0;
+		surface_p->pe_count = -1;
+		goto post;
+	}
+
 	c_faceclip++;
 	surface_p->pe_first = pe_numsurfedges;
 
@@ -601,8 +678,9 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 		return;
 	}
 
-	r_polycount++;
 	surface_p->pe_count = pe_numsurfedges - surface_p->pe_first;
+post:
+	r_polycount++;
 
 	surface_p->data = (void *)fa;
 	surface_p->nearzi = r_nearzi;
