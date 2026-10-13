@@ -937,15 +937,16 @@ static void R_AliasPreparePartial (void)
 		{
 			const byte	*v = r_apverts[i].v;
 			const float	z = DotProduct(v, aliastransform[2]) + aliastransform[2][3];
-			float		zi, u, w;
+			float		u, w;
 
 			state[i] = 1;
 			if (z < ALIAS_Z_CLIP_PLANE)
 				continue;
-			zi = 1.0f / z;
-			u = (DotProduct(v, aliastransform[0]) + aliastransform[0][3]) * xscale * zi + xcenter;
-			w = (DotProduct(v, aliastransform[1]) + aliastransform[1][3]) * yscale * zi + ycenter;
-			if (u >= gx0 && u <= gx1 && w >= gy0 && w <= gy1)
+			/* u = x * xscale / z + xcenter inside gx0..gx1, without the division (z > 0) */
+			u = (DotProduct(v, aliastransform[0]) + aliastransform[0][3]) * xscale;
+			w = (DotProduct(v, aliastransform[1]) + aliastransform[1][3]) * yscale;
+			if (u >= (gx0 - xcenter) * z && u <= (gx1 - xcenter) * z &&
+					w >= (gy0 - ycenter) * z && w <= (gy1 - ycenter) * z)
 				state[i] = 0;
 		}
 	}
