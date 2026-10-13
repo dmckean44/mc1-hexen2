@@ -393,6 +393,13 @@ static void D_DrawOpaqueSurface (surf_t *s)
 			cacheblock = (pixel_t *)pcurrentcache->data;
 			cachewidth = pcurrentcache->width;
 
+			if (pe_active && s->pe_count < 0 && PE_FACETEX_OK(s->flags))
+			{
+				PE_DrawFaceTex (s, PE_SPAN_TEX | PE_SPAN_Z, miplevel);
+				pcurrentcache->pe_fence = pe_submitted;
+			}
+			else
+			{
 			D_CalcGradients (pface);
 
 			if (pe_active)
@@ -403,6 +410,7 @@ static void D_DrawOpaqueSurface (surf_t *s)
 			}
 			else
 				(*d_drawspans) (s->spans);
+			}
 		}
 
 		if (!pe_active)

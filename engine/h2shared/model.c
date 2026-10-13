@@ -904,6 +904,7 @@ static void CalcSurfaceExtents (msurface_t *s)
 	mvertex_t	*v;
 	mtexinfo_t	*tex;
 	int		bmins[2], bmaxs[2];
+	float	bmin[3] = {1e30f, 1e30f, 1e30f}, bmax[3] = {-1e30f, -1e30f, -1e30f};
 
 	mins[0] = mins[1] = 9999999;	/* FIXME: change these two to FLT_MAX/-FLT_MAX */
 	maxs[0] = maxs[1] = -9999999;
@@ -918,6 +919,13 @@ static void CalcSurfaceExtents (msurface_t *s)
 		else
 			v = &loadmodel->vertexes[loadmodel->edges[-e].v[1]];
 
+		for (j = 0; j < 3; j++)
+		{
+			if (v->position[j] < bmin[j])
+				bmin[j] = v->position[j];
+			if (v->position[j] > bmax[j])
+				bmax[j] = v->position[j];
+		}
 		for (j = 0; j < 2; j++)
 		{
 			/* added double casts so that 64 bit/sse2 builds' precision
@@ -933,6 +941,12 @@ static void CalcSurfaceExtents (msurface_t *s)
 			if (val > maxs[j])
 				maxs[j] = val;
 		}
+	}
+
+	for (i = 0; i < 3; i++)
+	{
+		s->boxcenter[i] = 0.5f * (bmin[i] + bmax[i]);
+		s->boxhalf[i] = 0.5f * (bmax[i] - bmin[i]);
 	}
 
 	for (i = 0; i < 2; i++)

@@ -1317,7 +1317,9 @@ static void R_RenderView_ (void)
 	if (r_dspeeds.integer)
 		dp_time2 = Sys_DoubleTime ();
 
-	PE_Finish ();
+	/* the 2D goes to the engine too (BLIT); else the CPU draws it next */
+	if (!pe_blit2d || r_dowarp)
+		PE_Finish ();
 	if (r_dowarp)
 		D_WarpScreen ();
 

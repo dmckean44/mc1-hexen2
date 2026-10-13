@@ -17,6 +17,7 @@
 #include "quakedef.h"
 #include "d_local.h"
 #include "mc1.h"
+#include "d_pe.h"
 
 /* -DBASEWIDTH=640 for 640x240 (pixels twice as tall as wide) */
 #ifndef BASEWIDTH
@@ -184,6 +185,7 @@ static void VID_DumpFrame (void)
 
 void VID_Update (vrect_t *rects)
 {
+	PE_Finish ();	/* the engine may still be drawing this frame */
 	frame_count++;
 	if (frames_dumped < (unsigned)vid_dumpframes.integer)
 		VID_DumpFrame ();

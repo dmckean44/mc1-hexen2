@@ -28,6 +28,7 @@ enum {
 	PE_SKIN = 6,
 	PE_MESH = 12,
 	PE_SPRITE = 13,
+	PE_BLIT = 16,
 	PE_VERTS = 14,
 	PE_COVER = 7,
 	PE_POLY = 8,
@@ -36,7 +37,8 @@ enum {
 	PE_DEFER = 11,
 	PE_VIEW = 17,
 	PE_FACE = 18,
-	PE_PARTICLES = 19
+	PE_PARTICLES = 19,
+	PE_FACETEX = 20
 };
 
 enum {
@@ -86,6 +88,12 @@ extern qboolean pe_face;	/* world faces go out whole, as FACE (version 10) */
 extern qboolean pe_faceclip;	/* FACE mip levels from the face clipped to the screen */
 extern qboolean pe_guard_models;
 extern qboolean pe_sprites;	/* sprites as SPRITE commands (version 16) */
+/* 2D images as BLIT commands (version 14); CPU 2D drawing calls PE_Finish first */
+extern qboolean pe_blit2d;
+#define PE_BLIT_KEY(c)	(8 | ((c) << 8))	/* transparent texel c */
+#define PE_BLIT_OPAQUE	16
+void PE_Blit (const byte *src, int srcwidth, int x, int y, int w, int h, int flags,
+		const byte *table, const byte *remap);
 extern qboolean pe_defer_builds;
 extern int pe_version;
 
@@ -150,6 +158,10 @@ static inline void PE_Finish (void)
 
 void PE_Init (void);
 void PE_BeginFrame (void);
+void PE_DrawFaceTex (surf_t *s, int flags, int mip);
+/* solid faces go out as FACETEX: the engine computes their gradients (version 15) */
+#define PE_FACETEX_OK(flags)	(pe_face && pe_version >= 15 && \
+		!((flags) & (SURF_DRAWSKY | SURF_DRAWBACKGROUND | SURF_DRAWTURB | SURF_DRAWBLACK | SURF_TRANSLUCENT)))
 void R_BmodelViewOrigin (const entity_t *e, vec3_t org);
 void PE_SetSkin (const byte *skin, int skinwidth, int mode, const byte *table);
 finalvert_t *PE_AllocVerts (int n);

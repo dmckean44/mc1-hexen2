@@ -68,6 +68,8 @@
 #ifdef PLATFORM_WINDOWS
 #include "winquake.h"
 #endif
+#include "r_local.h"
+#include "d_pe.h"
 
 
 static qboolean	scr_initialized;	// ready to draw
@@ -963,6 +965,7 @@ static void SCR_ScreenShot_f (void)
 	D_EnableBackBufferAccess ();	// enable direct drawing of console
 					// to back buffer
 
+	PE_Finish ();
 	i = WritePCXfile (pcxname, vid.buffer, vid.width, vid.height, vid.rowbytes, host_basepal);
 
 	D_DisableBackBufferAccess ();	// for adapters that can't stay mapped

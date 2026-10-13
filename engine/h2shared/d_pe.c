@@ -16,6 +16,7 @@ qboolean	pe_face;
 qboolean	pe_faceclip;
 qboolean	pe_guard_models;
 qboolean	pe_sprites;
+qboolean	pe_blit2d;
 int		pe_version;
 pe_surfedge_t	*pe_surfedges;
 int		pe_numsurfedges;
@@ -97,6 +98,7 @@ void PE_BeginFrame (void)
 	r_clipplanes = (pe_world && (r_peguard.integer & 2)) ? guard_clipplanes : view_clipplanes;
 	pe_guard_models = pe_world && (r_peguard.integer & 1);
 	pe_sprites = pe_active && pe_version >= 16 && r_pesprite.integer;
+	pe_blit2d = pe_active && pe_version >= 14;
 	if (!pe_active)
 		return;
 
@@ -199,6 +201,58 @@ qboolean PE_DrawMesh (finalvert_t *verts, mtriangle_t *tris, int numtris, stvert
 
 /* A surface command's first two words: its spans, or in stage B its screen
    edges as a polygon (sent by PE_EndSurf after the other 19 words). */
+/* the first 7 words of FACE and FACETEX: a whole face, which the engine clips
+   and projects. Brush models come last, depth-tested, each with its own camera. */
+static void PE_FaceHeader (const surf_t *s, int flags, unsigned op, unsigned words)
+{
+	const msurface_t *fa = (const msurface_t *) s->data;
+	const qmodel_t	*mod = cl.worldmodel;
+
+	if (s->insubmodel)
+	{
+		mod = s->entity->model;
+		if (s->entity != pe_view_entity)
+		{
+			vec3_t	org;
+
+			R_BmodelViewOrigin (s->entity, org);
+			PE_SendView (org);
+			pe_view_entity = s->entity;
+		}
+		flags |= PE_SPAN_NOCOVER;
+	}
+	PE_Begin (op, words);
+	PE_Word (flags);
+	PE_Ptr (mod->vertexes);
+	PE_Ptr (mod->surfedges);
+	PE_Ptr (mod->edges);
+	PE_Word (sizeof(medge_t) | 0x10000);	/* 32-bit vertex indices */
+	PE_Word (fa->firstedge);
+	PE_Word (fa->numedges);
+}
+
+extern vec3_t	transformed_modelorg;
+
+/* a solid face whose texture gradients the engine works out (FACETEX, version 15):
+   R_RenderFace skipped the 1/z gradients and D_CalcGradients is not needed */
+void PE_DrawFaceTex (surf_t *s, int flags, int mip)
+{
+	const msurface_t *fa = (const msurface_t *) s->data;
+
+	PE_FaceHeader (s, flags, PE_FACETEX, 18);
+	PE_Ptr (cacheblock);
+	PE_Word (cachewidth);
+	PE_Word (mip);
+	PE_Ptr (fa->texinfo->vecs);
+	PE_Ptr (fa->plane);
+	PE_Word ((fa->texturemins[0] & 0xffff) | (fa->texturemins[1] << 16));
+	PE_Word ((fa->extents[0] & 0xffff) | (fa->extents[1] << 16));
+	PE_Float (transformed_modelorg[0]);
+	PE_Float (transformed_modelorg[1]);
+	PE_Float (transformed_modelorg[2]);
+	PE_Ptr (NULL);
+}
+
 int PE_BeginSurf (surf_t *s, int flags)
 {
 	if (!pe_world)
@@ -217,32 +271,7 @@ int PE_BeginSurf (surf_t *s, int flags)
 	}
 	if (s->pe_count < 0)
 	{
-		/* a whole face: the engine clips and projects it (FACE). Brush
-		   models come last, depth-tested, each with its own camera. */
-		const msurface_t *fa = (const msurface_t *) s->data;
-		const qmodel_t	*mod = cl.worldmodel;
-
-		if (s->insubmodel)
-		{
-			mod = s->entity->model;
-			if (s->entity != pe_view_entity)
-			{
-				vec3_t	org;
-
-				R_BmodelViewOrigin (s->entity, org);
-				PE_SendView (org);
-				pe_view_entity = s->entity;
-			}
-			flags |= PE_SPAN_NOCOVER;
-		}
-		PE_Begin (PE_FACE, 26);
-		PE_Word (flags);
-		PE_Ptr (mod->vertexes);
-		PE_Ptr (mod->surfedges);
-		PE_Ptr (mod->edges);
-		PE_Word (sizeof(medge_t) | 0x10000);	/* 32-bit vertex indices */
-		PE_Word (fa->firstedge);
-		PE_Word (fa->numedges);
+		PE_FaceHeader (s, flags, PE_FACE, 26);
 		return 0;
 	}
 	PE_Begin (PE_POLY, 21 + 3 * s->pe_count);
@@ -331,4 +360,27 @@ void PE_Triangle (const int *p0, const int *p1, const int *p2)
 		PE_Word (p1[i]);
 	for (i = 0; i < 6; i++)
 		PE_Word (p2[i]);
+}
+
+/* a 2D image at (x, y) of the frame buffer, unscaled; flags as BLIT word 10 */
+void PE_Blit (const byte *src, int srcwidth, int x, int y, int w, int h, int flags,
+		const byte *table, const byte *remap)
+{
+	int	i;
+
+	PE_Begin (PE_BLIT, remap ? 12 + 64 : 12);
+	PE_Ptr (src);
+	PE_Word (srcwidth);
+	PE_Word (0x10000);
+	PE_Word (0x10000);
+	PE_Word (0);
+	PE_Word (0);
+	PE_Ptr (vid.buffer + y * vid.rowbytes + x);
+	PE_Word (vid.rowbytes);
+	PE_Word (w);
+	PE_Word (h);
+	PE_Word (flags | (remap ? 4 : 0));
+	PE_Ptr (table);
+	for (i = 0; remap && i < 256; i += 4)
+		PE_Word (remap[i] | (remap[i + 1] << 8) | (remap[i + 2] << 16) | ((unsigned)remap[i + 3] << 24));
 }

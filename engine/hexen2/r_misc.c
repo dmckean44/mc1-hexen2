@@ -20,6 +20,7 @@
 
 #include "quakedef.h"
 #include "r_local.h"
+#include "d_pe.h"
 
 /*
 ===============
@@ -110,6 +111,7 @@ static void R_LineGraph (int x, int y, int h, int drawType, int marker)
 
 	x += r_refdef.vrect.x;
 	y += r_refdef.vrect.y;
+	PE_Finish ();
 	dest = vid.buffer + vid.rowbytes*y + x;
 	s = r_graphheight.integer;
 	if (s > r_refdef.vrect.height)

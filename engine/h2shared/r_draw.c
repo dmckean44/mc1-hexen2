@@ -529,6 +529,31 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 		const float	*near = NULL;
 		float		zmin = 1e30f;
 
+		if (!pe_faceclip)
+		{
+			/* the face's bounding box instead of its vertices: the nearest
+			   corner (the nearest vertex for axis-aligned rectangles) and a
+			   box-plane test for the screen edges */
+			const float	*c = fa->boxcenter, *h = fa->boxhalf;
+
+			for (unsigned k = 0; k < 4; k++)
+			{
+				const float *n = view_clipplanes[k].normal;
+
+				if ((vmask & (1u << k)) && DotProduct(c, n) - view_clipplanes[k].dist +
+					fabsf(n[0]) * h[0] + fabsf(n[1]) * h[1] + fabsf(n[2]) * h[2] < 0)
+					return;	/* entirely off the screen */
+			}
+			zmin = (c[0] - modelorg[0]) * vpn[0] + (c[1] - modelorg[1]) * vpn[1] +
+				(c[2] - modelorg[2]) * vpn[2] -
+				(fabsf(vpn[0]) * h[0] + fabsf(vpn[1]) * h[1] + fabsf(vpn[2]) * h[2]);
+			r_nearzi = 1.0f / (zmin < 1.0f ? 1.0f : zmin);
+			c_faceclip++;
+			surface_p->pe_first = 0;
+			surface_p->pe_count = -1;
+			goto post;
+		}
+
 		for (i = 0; i < fa->numedges; i++)
 		{
 			const int lindex = currententity->model->surfedges[fa->firstedge + i];
@@ -724,6 +749,12 @@ post:
 	surface_p->entity = currententity;
 	surface_p->key = r_currentkey++;
 	surface_p->spans = NULL;
+
+	if (surface_p->pe_count < 0 && PE_FACETEX_OK(surface_p->flags))
+	{
+		surface_p++;	/* the engine works out the gradients (FACETEX) */
+		return;
+	}
 
 	pplane = fa->plane;
 // FIXME: cache this?

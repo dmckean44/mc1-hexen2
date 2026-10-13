@@ -25,6 +25,8 @@
 #include "quakedef.h"
 #include "hashindex.h"
 #include "r_shared.h"
+#include "r_local.h"
+#include "d_pe.h"
 
 typedef struct {
 	vrect_t	rect;
@@ -358,6 +360,12 @@ void Draw_Character (int x, int y, unsigned int num)
 	else
 		drawline = 8;
 
+	if (pe_blit2d && vid.conbuffer == vid.buffer)
+	{
+		PE_Blit (source, 256, x, y, 8, drawline, PE_BLIT_KEY(0) | trans_level, mainTransTable, NULL);
+		return;
+	}
+
 	if (r_pixbytes == 1)
 	{
 		byte *dest = vid.conbuffer + y*vid.conrowbytes + x;
@@ -492,6 +500,7 @@ void Draw_RedString (int x, int y, const char *str)
 
 static void Draw_Pixel (int x, int y, const byte color)
 {
+	PE_Finish ();	/* the CPU draws into the frame buffer */
 	if (r_pixbytes == 1)
 	{
 		byte *dest = vid.conbuffer + y*vid.conrowbytes + x;
@@ -591,6 +600,12 @@ void Draw_SmallCharacter (int x, int y, int num)
 	row = num >> 4;
 	col = num & 15;
 	source = draw_smallchars + (row<<10) + (col<<3);
+
+	if (pe_blit2d)
+	{
+		PE_Blit (source, 128, x, y, 8, height, PE_BLIT_KEY(0) | trans_level, mainTransTable, NULL);
+		return;
+	}
 
 	if (r_pixbytes == 1)
 	{
@@ -728,6 +743,7 @@ void Draw_BigCharacter (int x, int y, int num)
 	byte	*dest;
 	byte	*source;
 
+	PE_Finish ();	/* the CPU draws into the frame buffer */
 	p = Draw_CachePic ("gfx/menu/bigfont.lmp");
 	source = p->data + ((num % 8) * 20) + (num / 8 * p->width * 20);
 
@@ -764,6 +780,12 @@ void Draw_Pic (int x, int y, qpic_t *pic)
 	}
 
 	source = pic->data;
+
+	if (pe_blit2d)
+	{
+		PE_Blit (source, pic->width, x, y, pic->width, pic->height, PE_BLIT_OPAQUE, NULL, NULL);
+		return;
+	}
 
 	if (r_pixbytes == 1)
 	{
@@ -837,6 +859,12 @@ void Draw_PicCropped (int x, int y, qpic_t *pic)
 		y = 0;
 	}
 
+	if (pe_blit2d)
+	{
+		PE_Blit (source, pic->width, x, y, pic->width, height, PE_BLIT_OPAQUE | trans_level, mainTransTable, NULL);
+		return;
+	}
+
 	if (r_pixbytes == 1)
 	{
 		byte *dest = vid.buffer + y*vid.rowbytes + x;
@@ -906,6 +934,12 @@ void Draw_TransPic (int x, int y, qpic_t *pic)
 	}
 
 	source = pic->data;
+
+	if (pe_blit2d)
+	{
+		PE_Blit (source, pic->width, x, y, pic->width, pic->height, PE_BLIT_KEY(TRANSPARENT_COLOR), NULL, NULL);
+		return;
+	}
 
 	if (r_pixbytes == 1)
 	{
@@ -1024,6 +1058,12 @@ void Draw_SubPicCropped (int x, int y, int h, qpic_t *pic)
 		y = 0;
 	}
 
+	if (pe_blit2d)
+	{
+		PE_Blit (source, pic->width, x, y, pic->width, height, PE_BLIT_OPAQUE | trans_level, mainTransTable, NULL);
+		return;
+	}
+
 	if (r_pixbytes == 1)
 	{
 		byte *dest = vid.buffer + y * vid.rowbytes + x;
@@ -1117,6 +1157,12 @@ void Draw_TransPicCropped (int x, int y, qpic_t *pic)
 	{
 		source += (pic->width * (-y));
 		y = 0;
+	}
+
+	if (pe_blit2d)
+	{
+		PE_Blit (source, pic->width, x, y, pic->width, height, PE_BLIT_KEY(TRANSPARENT_COLOR) | trans_level, mainTransTable, NULL);
+		return;
 	}
 
 	if (r_pixbytes == 1)
@@ -1295,6 +1341,12 @@ void Draw_SubPic (int x, int y, qpic_t *pic, int srcx, int srcy, int width, int 
 
 	source = pic->data + srcy * pic->width + srcx;
 
+	if (pe_blit2d)
+	{
+		PE_Blit (source, pic->width, x, y, width, height, PE_BLIT_OPAQUE, NULL, NULL);
+		return;
+	}
+
 	if (r_pixbytes == 1)
 	{
 		byte *dest = vid.buffer + y * vid.rowbytes + x;
@@ -1339,6 +1391,12 @@ void Draw_TransPicTranslate (int x, int y, qpic_t *pic, byte *translation, int p
 	}
 
 	source = pic->data;
+
+	if (pe_blit2d)
+	{
+		PE_Blit (source, pic->width, x, y, pic->width, pic->height, PE_BLIT_KEY(TRANSPARENT_COLOR), NULL, translation);
+		return;
+	}
 
 	if (r_pixbytes == 1)
 	{
@@ -1431,6 +1489,7 @@ void Draw_ConsoleBackground (int lines)
 	int		f, fstep;
 	qpic_t		*conback;
 
+	PE_Finish ();	/* the CPU draws into the frame buffer */
 	conback = Draw_CachePic ("gfx/menu/conback.lmp");
 
 	/* Since the status bar or deahmatch overlay will never be drawn
@@ -1661,6 +1720,7 @@ void Draw_TileClear (int x, int y, int w, int h)
 	byte	*psrc;
 	vrect_t	vr;
 
+	PE_Finish ();	/* the CPU draws into the frame buffer */
 	r_rectdesc.rect.x = x;
 	r_rectdesc.rect.y = y;
 	r_rectdesc.rect.width = w;
@@ -1731,6 +1791,7 @@ void Draw_Fill (int x, int y, int w, int h, int c)
 {
 	int		u, v;
 
+	PE_Finish ();	/* the CPU draws into the frame buffer */
 	if (x < 0 || x + w > vid.width ||
 	    y < 0 || y + h > vid.height)
 	{
@@ -1799,6 +1860,7 @@ void Draw_FadeScreen (void)
 	byte		*pbuf;
 	int temp[2048], *pos;
 
+	PE_Finish ();	/* the CPU draws into the frame buffer */
 	VID_UnlockBuffer ();
 	S_ExtraUpdate ();
 	VID_LockBuffer ();
@@ -1849,6 +1911,7 @@ void Draw_BeginDisc (void)
 {
 	static int disc_idx = 0;
 
+	PE_Finish ();	/* the CPU draws into the frame buffer */
 #ifndef H2W
 	if (loading_stage)
 		return;
@@ -1884,6 +1947,7 @@ void Draw_EndDisc (void)
 	if (!draw_disc[0])
 		return;
 
+	PE_Finish ();	/* the CPU draws into the frame buffer */
 	D_EndDirectRect (vid.width - 28, 0, 28, 24);
 	scr_topupdate = 0;	// this was disabled by rjr in the hw source for what reason?
 #endif
