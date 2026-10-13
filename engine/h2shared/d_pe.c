@@ -199,6 +199,23 @@ qboolean PE_DrawMesh (finalvert_t *verts, mtriangle_t *tris, int numtris, stvert
 	return true;
 }
 
+/* the listed triangles (16-bit indices in memory the engine reads later) of a model
+   whose vertices were transformed by VERTS: the ones in front of the near plane */
+void PE_DrawMeshOrder (finalvert_t *verts, mtriangle_t *tris, const unsigned short *order, int count,
+		stvert_t *stverts, int seamfixup)
+{
+	pe_mesh_fence = PE_Begin (PE_MESH, 9);
+	PE_Ptr (verts);
+	PE_Word (sizeof(finalvert_t));
+	PE_Ptr (tris);
+	PE_Ptr (order);
+	PE_Word (count);
+	PE_Ptr (stverts);
+	PE_Word (PE_MESH_HEXEN2);
+	PE_Word (0);
+	PE_Word (seamfixup);
+}
+
 /* A surface command's first two words: its spans, or in stage B its screen
    edges as a polygon (sent by PE_EndSurf after the other 19 words). */
 /* the first 7 words of FACE and FACETEX: a whole face, which the engine clips

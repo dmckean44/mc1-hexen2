@@ -183,13 +183,28 @@ static void VID_DumpFrame (void)
 	frames_dumped++;
 }
 
+/* The finished frame is shown at the start of the next screen update
+   (VID_FlipPending), so the game logic of the next frame runs while the pixel
+   engine is still drawing this one. */
+static qboolean	flip_pending;
+
 void VID_Update (vrect_t *rects)
 {
-	PE_Finish ();	/* the engine may still be drawing this frame */
 	frame_count++;
 	if (frames_dumped < (unsigned)vid_dumpframes.integer)
+	{
+		PE_Finish ();
 		VID_DumpFrame ();
+	}
+	flip_pending = true;
+}
 
+void VID_FlipPending (void)
+{
+	if (!flip_pending)
+		return;
+	flip_pending = false;
+	PE_Finish ();	/* the engine may still be drawing the frame */
 	VID_ShowPage (back_page);
 	back_page ^= 1;
 	vid.buffer = vid.conbuffer = vid.direct = framebuffer[back_page];

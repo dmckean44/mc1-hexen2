@@ -86,6 +86,10 @@ static aedge_t	aedges[12] =
 static void R_AliasTransformAndProjectFinalVerts (finalvert_t *fv, stvert_t *pstverts);
 #endif
 static void R_AliasSetUpTransform (int trivial_accept);
+/* set by R_AliasCheckBBox: the model may use the engine's guard band */
+cvar_t	r_pepartial = {"r_pepartial", "1", CVAR_NONE};	/* see R_AliasPreparePartial */
+static qboolean	r_alias_zonly;
+static void PE_AliasVertsM (finalvert_t *fv, const trivertx_t *pverts, int numverts, float m[3][4]);
 static void R_AliasTransformVector (vec3_t in, vec3_t out);
 static void R_AliasTransformFinalVert (finalvert_t *fv, auxvert_t *av, trivertx_t *pverts);
 
@@ -270,6 +274,7 @@ qboolean R_AliasCheckBBox (void)
 		return false;	// trivial reject off one side
 
 	currententity->trivial_accept = !(guard ? guardclip : anyclip) & !zclipped;
+	r_alias_zonly = guard;	/* R_AliasPreparePartial takes it from here */
 
 	if (currententity->trivial_accept)
 	{
@@ -890,8 +895,134 @@ void R_AliasProjectFinalVert (finalvert_t *fv, auxvert_t *av)
 }
 
 
+/*
+================
+R_AliasPreparePartial
+
+A model that needs clipping but may use the guard band (the view weapon, mostly):
+the engine transforms all the vertices (VERTS, scaled as R_AliasSetUpTransform does
+for the unclipped case, with ziscale) and draws the triangles whose vertices are in
+front of the near plane and inside the guard band as one MESH; the CPU transforms
+only the vertices of the other triangles, and clips those (r_pepartial).
+================
+*/
+static void R_AliasPreparePartial (void)
+{
+	stvert_t	*pstverts = (stvert_t *)((byte *)paliashdr + paliashdr->stverts);
+	mtriangle_t	*ptri = (mtriangle_t *)((byte *)paliashdr + paliashdr->triangles);
+	const int	n = pmdl->numverts, nt = pmdl->numtris;
+	finalvert_t	*fvpe = PE_AllocVerts (n + (nt * (int)sizeof(unsigned short) + (int)sizeof(finalvert_t) - 1) / (int)sizeof(finalvert_t));
+	unsigned short	*order = (unsigned short *)(fvpe + n);
+	byte		state[MAXALIASVERTS];	/* bit 0: clipped by the CPU, bit 1: transformed here */
+	float		m[3][4];
+	int		i, j, count = 0;
+
+	for (j = 0; j < 4; j++)
+	{
+		m[0][j] = aliastransform[0][j] * aliasxscale / ziscale;
+		m[1][j] = aliastransform[1][j] * aliasyscale / ziscale;
+		m[2][j] = aliastransform[2][j] / ziscale;
+	}
+	PE_AliasVertsM (fvpe, r_apverts, n, m);
+
+	/* bit 0: the CPU clips the vertex's triangles, as it is behind the near plane
+	   or outside the guard band */
+	{
+		const float	gx0 = xcenter - PE_GUARD * (xcenter - r_refdef.fvrectx);
+		const float	gx1 = xcenter + PE_GUARD * (r_refdef.fvrectright - xcenter);
+		const float	gy0 = ycenter - PE_GUARD * (ycenter - r_refdef.fvrecty);
+		const float	gy1 = ycenter + PE_GUARD * (r_refdef.fvrectbottom - ycenter);
+
+		for (i = 0; i < n; i++)
+		{
+			const byte	*v = r_apverts[i].v;
+			const float	z = DotProduct(v, aliastransform[2]) + aliastransform[2][3];
+			float		zi, u, w;
+
+			state[i] = 1;
+			if (z < ALIAS_Z_CLIP_PLANE)
+				continue;
+			zi = 1.0f / z;
+			u = (DotProduct(v, aliastransform[0]) + aliastransform[0][3]) * xscale * zi + xcenter;
+			w = (DotProduct(v, aliastransform[1]) + aliastransform[1][3]) * yscale * zi + ycenter;
+			if (u >= gx0 && u <= gx1 && w >= gy0 && w <= gy1)
+				state[i] = 0;
+		}
+	}
+
+	r_affinetridesc.numtriangles = 1;
+	for (i = 0; i < nt; i++, ptri++)
+	{
+		const int cpu = (state[ptri->vertindex[0]] | state[ptri->vertindex[1]] |
+				state[ptri->vertindex[2]]) & 1;
+		finalvert_t	*pfv[3];
+
+		if (!cpu)
+		{
+			order[count++] = i;
+			continue;
+		}
+		for (j = 0; j < 3; j++)
+		{
+			const int vi = ptri->vertindex[j];
+			finalvert_t	*fv = &pfinalverts[vi];
+			auxvert_t	*av = &pauxverts[vi];
+
+			pfv[j] = fv;
+			if (state[vi] & 2)
+				continue;
+			state[vi] |= 2;
+			fv->flags = 0;
+			R_AliasTransformFinalVert (fv, av, &r_apverts[vi]);
+			if (av->fv[2] < ALIAS_Z_CLIP_PLANE)
+				fv->flags |= ALIAS_Z_CLIP;
+			else
+			{
+				R_AliasProjectFinalVert (fv, av);
+				if (fv->v[0] < r_refdef.aliasvrect.x)
+					fv->flags |= ALIAS_LEFT_CLIP;
+				if (fv->v[1] < r_refdef.aliasvrect.y)
+					fv->flags |= ALIAS_TOP_CLIP;
+				if (fv->v[0] > r_refdef.aliasvrectright)
+					fv->flags |= ALIAS_RIGHT_CLIP;
+				if (fv->v[1] > r_refdef.aliasvrectbottom)
+					fv->flags |= ALIAS_BOTTOM_CLIP;
+			}
+		}
+		if (pfv[0]->flags & pfv[1]->flags & pfv[2]->flags & (ALIAS_XY_CLIP_MASK | ALIAS_Z_CLIP))
+			continue;		// completely clipped
+		for (j = 0; j < 3; j++)
+		{
+			pfv[j]->v[2] = pstverts[ptri->stindex[j]].s;
+			pfv[j]->v[3] = pstverts[ptri->stindex[j]].t;
+			pfv[j]->flags |= pstverts[ptri->stindex[j]].onseam;
+		}
+		if (!((pfv[0]->flags | pfv[1]->flags | pfv[2]->flags) & (ALIAS_XY_CLIP_MASK | ALIAS_Z_CLIP)))
+		{	// on the screen after all (between the guard band and the screen edge)
+			r_affinetridesc.pfinalverts = pfinalverts;
+			r_affinetridesc.ptriangles = ptri;
+			if (currententity->model->flags & EF_SPECIAL_TRANS)
+				D_PolysetDrawT5 ();
+			else if (currententity->drawflags & DRF_TRANSLUCENT)
+				D_PolysetDrawT ();
+			else if (currententity->model->flags & EF_TRANSPARENT)
+				D_PolysetDrawT2 ();
+			else if (currententity->model->flags & EF_HOLEY)
+				D_PolysetDrawT3 ();
+			else
+				D_PolysetDraw ();
+		}
+		else
+			R_AliasClipTriangle (ptri);
+	}
+	if (count)
+		PE_DrawMeshOrder (fvpe, (mtriangle_t *)((byte *)paliashdr + paliashdr->triangles), order, count,
+				pstverts, r_affinetridesc.seamfixupX16);
+}
+
+
 /* the engine transforms, projects and lights the vertices (version 9) */
-static void PE_AliasVerts (finalvert_t *fv, const trivertx_t *pverts, int numverts)
+static void PE_AliasVertsM (finalvert_t *fv, const trivertx_t *pverts, int numverts, float m[3][4])
 {
 	int	i, j;
 
@@ -902,7 +1033,7 @@ static void PE_AliasVerts (finalvert_t *fv, const trivertx_t *pverts, int numver
 	for (i = 0; i < 3; i++)
 	{
 		for (j = 0; j < 4; j++)
-			PE_Float (aliastransform[i][j]);
+			PE_Float (m[i][j]);
 	}
 	PE_Float (aliasxcenter);
 	PE_Float (aliasycenter);
@@ -913,6 +1044,8 @@ static void PE_AliasVerts (finalvert_t *fv, const trivertx_t *pverts, int numver
 	PE_Word (r_ambientlight);
 	PE_Float (r_shadelight);
 }
+
+#define PE_AliasVerts(fv, pverts, numverts)	PE_AliasVertsM (fv, pverts, numverts, aliastransform)
 
 /*
 ================
@@ -1355,6 +1488,8 @@ void R_AliasDrawModel (alight_t *plighting)
 
 	if (currententity->trivial_accept)
 		R_AliasPrepareUnclippedPoints ();
+	else if (pe_alias && r_alias_zonly && pe_version >= 9 && r_pepartial.integer)
+		R_AliasPreparePartial ();
 	else
 		R_AliasPreparePoints ();
 }

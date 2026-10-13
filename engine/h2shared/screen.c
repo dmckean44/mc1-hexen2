@@ -1280,6 +1280,10 @@ void SCR_UpdateScreen (void)
 	if (scr_skipupdate || block_drawing)
 		return;
 
+#ifdef MC1
+	VID_FlipPending ();	/* show the last frame before drawing the next */
+#endif
+
 #ifdef PLATFORM_WINDOWS
 	// don't suck up any cpu if minimized
 	if (Minimized)

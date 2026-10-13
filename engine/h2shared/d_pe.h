@@ -158,6 +158,7 @@ static inline void PE_Finish (void)
 
 void PE_Init (void);
 void PE_BeginFrame (void);
+void VID_FlipPending (void);
 void PE_DrawFaceTex (surf_t *s, int flags, int mip);
 /* solid faces go out as FACETEX: the engine computes their gradients (version 15) */
 #define PE_FACETEX_OK(flags)	(pe_face && pe_version >= 15 && \
@@ -166,6 +167,8 @@ void R_BmodelViewOrigin (const entity_t *e, vec3_t org);
 void PE_SetSkin (const byte *skin, int skinwidth, int mode, const byte *table);
 finalvert_t *PE_AllocVerts (int n);
 qboolean PE_DrawMesh (finalvert_t *verts, mtriangle_t *tris, int numtris, stvert_t *stverts, int seamfixup);
+void PE_DrawMeshOrder (finalvert_t *verts, mtriangle_t *tris, const unsigned short *order, int count,
+		stvert_t *stverts, int seamfixup);
 void PE_DrawSpans (surf_t *s, int flags, const int *turb,
 		float zorigin, float zstepu, float zstepv);
 void PE_DrawWorld (surf_t *world_end);

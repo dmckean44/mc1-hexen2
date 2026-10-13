@@ -242,6 +242,10 @@ void R_Init (void)
 
 	Cvar_RegisterVariable (&r_draworder);
 	Cvar_RegisterVariable (&r_lodsize);
+	{
+		extern cvar_t	r_pepartial;
+		Cvar_RegisterVariable (&r_pepartial);
+	}
 	PE_Init ();
 	Cvar_RegisterVariable (&r_speeds);
 	Cvar_RegisterVariable (&r_timegraph);
