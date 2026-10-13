@@ -1,3 +1,0 @@
-/home/dmckean44/mc1-work/h2/mc1-hexen2/engine/hexen2/out640/CMakeFiles/mc1hexen2.dir
-/home/dmckean44/mc1-work/h2/mc1-hexen2/engine/hexen2/out640/CMakeFiles/edit_cache.dir
-/home/dmckean44/mc1-work/h2/mc1-hexen2/engine/hexen2/out640/CMakeFiles/rebuild_cache.dir
