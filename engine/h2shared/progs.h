@@ -43,6 +43,8 @@ typedef struct edict_s
 
 	int		num_leafs;
 	int		leafnums[MAX_ENT_LEAFS];
+	float		leafbox[6];		/* the abs box leafnums were found for, */
+	int		leafepoch;		/* in the map of this sv_leafepoch */
 
 	entity_state_t	baseline;
 

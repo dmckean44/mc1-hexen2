@@ -266,9 +266,13 @@ SV_ClearWorld
 
 ===============
 */
+/* changes with each map, so edicts never reuse leafnums found in another */
+static int	sv_leafepoch;
+
 void SV_ClearWorld (void)
 {
 	SV_InitBoxHull ();
+	sv_leafepoch++;
 
 	memset (sv_areanodes, 0, sizeof(sv_areanodes));
 	sv_numareanodes = 0;
@@ -501,10 +505,24 @@ void SV_LinkEdict (edict_t *ent, qboolean touch_triggers)
 		ent->v.absmax[2] += 1;
 	}
 
-	// link to PVS leafs
-	ent->num_leafs = 0;
-	if (ent->v.modelindex)
+	// link to PVS leafs (unless the box is the one they were found for: rotating
+	// brushes are relinked every frame with the same box)
+	if (!ent->v.modelindex)
+	{
+		ent->num_leafs = 0;
+		ent->leafepoch = 0;
+	}
+	else if (ent->leafepoch != sv_leafepoch ||
+			ent->leafbox[0] != ent->v.absmin[0] || ent->leafbox[1] != ent->v.absmin[1] ||
+			ent->leafbox[2] != ent->v.absmin[2] || ent->leafbox[3] != ent->v.absmax[0] ||
+			ent->leafbox[4] != ent->v.absmax[1] || ent->leafbox[5] != ent->v.absmax[2])
+	{
+		ent->num_leafs = 0;
 		SV_FindTouchedLeafs (ent, sv.worldmodel->nodes);
+		VectorCopy (ent->v.absmin, ent->leafbox);
+		VectorCopy (ent->v.absmax, ent->leafbox + 3);
+		ent->leafepoch = sv_leafepoch;
+	}
 
 	if (ent->v.solid == SOLID_NOT)
 		return;
