@@ -253,6 +253,19 @@ R_EntityParticles
 #define NUMVERTEXNORMALS 162
 static const float	r_avertexnormals[NUMVERTEXNORMALS][3] = {
 #include "anorms.h"
+
+/* Explosions want thousands of random numbers in one frame: a xorshift with
+   the C library's range (0..RAND_MAX = 2^31 - 1) is much cheaper than rand. */
+static unsigned int	r_partseed = 0x2545f491;
+
+static inline int R_PartRand (void)
+{
+	r_partseed ^= r_partseed << 13;
+	r_partseed ^= r_partseed >> 17;
+	r_partseed ^= r_partseed << 5;
+	return (int)(r_partseed >> 1);
+}
+#define rand()	R_PartRand ()
 };
 #endif
 static	vec3_t	avelocities[NUMVERTEXNORMALS];
