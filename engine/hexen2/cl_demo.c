@@ -46,6 +46,33 @@ static void CL_ProfMark (const char *tag)
 #else
 #define CL_ProfMark(tag)	do {} while (0)
 #endif
+/* per-frame cycle counts of a timedemo, printed at the end (TDFRAMES lines) */
+#ifdef MC1
+static unsigned	td_clk[4096];
+static int	td_nclk;
+
+static void Prof_Frame (qboolean start)
+{
+	if (start)
+		td_nclk = 0;
+	if (td_nclk < 4096)
+		td_clk[td_nclk++] = GET_MMIO (CLKCNTLO);
+}
+
+static void Prof_Frames (void)
+{
+	int	i;
+
+	Prof_Frame (false);
+	for (i = 1; i < td_nclk; i++)
+		printf ("%s%u%s", i % 16 == 1 ? "TDFRAMES " : "", td_clk[i] - td_clk[i - 1],
+			i % 16 == 0 || i == td_nclk - 1 ? "\n" : " ");
+}
+#else
+#define Prof_Frame(start)	do {} while (0)
+#define Prof_Frames()		do {} while (0)
+#endif
+
 
 /* vars for the mission pack intro */
 qboolean	intro_playing = false;
@@ -143,6 +170,8 @@ static int CL_GetDemoMessage (void)
 			if (host_framecount == cls.td_lastframe)
 				return 0;	// already read this frame's message
 			cls.td_lastframe = host_framecount;
+			if (host_framecount > cls.td_startframe)
+				Prof_Frame (host_framecount == cls.td_startframe + 1);
 		// if this is the second frame, grab the real td_starttime
 		// so the bogus time on the first frame doesn't count
 			if (host_framecount == cls.td_startframe + 1)
@@ -469,6 +498,7 @@ static void CL_FinishTimeDemo (void)
 
 	cls.timedemo = false;
 	CL_ProfMark ("TIMEDEMO_END");
+	Prof_Frames ();
 
 // the first frame didn't count
 	frames = (host_framecount - cls.td_startframe) - 1;
