@@ -32,7 +32,17 @@ unset(path CACHE)
 
 option(MR32_ASM "Use the MRISC32 assembler routines" ON)
 
-list(APPEND DEFS -DDEMOBUILD -D_NO_SOUND -D_NO_MIDIDRV -D_NO_CDAUDIO -DNDEBUG=1)
+# MC1_SOUND: the real mixer into a memory ring buffer (snd_mc1.c), to measure its cost
+option(MC1_SOUND "Mix sound (into memory, no device yet)" OFF)
+if(MC1_SOUND)
+  list(FILTER SRCS EXCLUDE REGEX "snd_null\\.c$")
+  foreach(name snd_sys snd_dma snd_mem snd_mix snd_codec snd_mc1)
+    list(APPEND SRCS ${CMAKE_CURRENT_SOURCE_DIR}/../h2shared/${name}.c)
+  endforeach()
+  list(APPEND DEFS -DDEMOBUILD -DMC1_SOUND -D_NO_MIDIDRV -D_NO_CDAUDIO -DNDEBUG=1)
+else()
+  list(APPEND DEFS -DDEMOBUILD -D_NO_SOUND -D_NO_MIDIDRV -D_NO_CDAUDIO -DNDEBUG=1)
+endif()
 
 if(MC1)
   list(APPEND SRCS sys_mc1.c net_mc1.c fastmath_mc1.c ../h2shared/d_pe.c ../h2shared/vid_mc1.c ../h2shared/in_mc1.c)

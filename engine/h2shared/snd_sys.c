@@ -102,6 +102,12 @@ void S_DriversInit (void)
 	S_RegisterDriver(&snddrv_null);
 	if (safemode || COM_CheckParm("-nosound") || COM_CheckParm("-s"))
 		snd_drivers->userpreferred = true;
+#if defined(MC1_SOUND)
+	{
+		extern snd_driver_t snddrv_mc1;
+		S_RegisterDriver(&snddrv_mc1);
+	}
+#endif
 #if HAVE_SUN_SOUND
 	S_RegisterDriver(&snddrv_sunaudio);
 	if (COM_CheckParm ("-sndsun") || COM_CheckParm ("-sndbsd"))
