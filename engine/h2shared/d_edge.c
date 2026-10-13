@@ -484,15 +484,19 @@ void PE_DrawWorld (surf_t *world_end)
 	i = 0;
 	for (s = &surfaces[2]; s < world_end; s++)
 	{
-		for ( ; i < numbmodels && bmodels[i]->key < s->key; i++)
+		for ( ; !pe_face && i < numbmodels && bmodels[i]->key < s->key; i++)
 			PE_DrawWorldSurface (bmodels[i]);
 		PE_DrawWorldSurface (s);
 	}
+	for ( ; !pe_face && i < numbmodels; i++)
+		PE_DrawWorldSurface (bmodels[i]);
+
+	D_DrawOpaqueSurface (&surfaces[1]);
+
+	/* with FACE, brush models are depth-tested over everything instead */
 	for ( ; i < numbmodels; i++)
 		PE_DrawWorldSurface (bmodels[i]);
 	pe_defer_builds = false;
-
-	D_DrawOpaqueSurface (&surfaces[1]);
 }
 
 /*

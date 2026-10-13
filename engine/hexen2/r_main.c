@@ -1070,7 +1070,7 @@ static void R_DrawBEntitiesOnList (void)
 				{
 					currententity->topnode = r_pefragtopnode;
 
-					if (r_pefragtopnode->contents >= 0)
+					if (r_pefragtopnode->contents >= 0 && !pe_face)
 					{
 						// not a leaf; has to be clipped to the world BSP
 						r_clipflags = clipflags;

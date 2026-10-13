@@ -516,7 +516,7 @@ void R_RenderFace (msurface_t *fa, int clipflags)
 		return;
 	}
 
-	if (pe_face && !insubmodel && !(fa->flags & SURF_TRANSLUCENT) &&
+	if (pe_face && !(fa->flags & SURF_TRANSLUCENT) &&
 			!(currententity->drawflags & DRF_TRANSLUCENT))
 	{
 		/* The engine clips and projects the whole face (FACE). The mip level wants
