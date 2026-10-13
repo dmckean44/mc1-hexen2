@@ -536,6 +536,47 @@ void SV_LinkEdict (edict_t *ent, qboolean touch_triggers)
 }
 
 
+/* The numbers of the linked (solid or trigger) edicts whose boxes overlap mins..maxs,
+   unsorted; at most max of them. */
+static int SV_AreaEdicts_r (areanode_t *node, const float *mins, const float *maxs, int *list, int n, int max)
+{
+	link_t	*l;
+	edict_t	*e;
+
+	while (1)
+	{
+		for (l = node->solid_edicts.next; l != &node->solid_edicts && n < max; l = l->next)
+		{
+			e = EDICT_FROM_AREA(l);
+			if (e->v.absmin[0] <= maxs[0] && e->v.absmin[1] <= maxs[1] && e->v.absmin[2] <= maxs[2] &&
+					e->v.absmax[0] >= mins[0] && e->v.absmax[1] >= mins[1] && e->v.absmax[2] >= mins[2])
+				list[n++] = NUM_FOR_EDICT(e);
+		}
+		for (l = node->trigger_edicts.next; l != &node->trigger_edicts && n < max; l = l->next)
+		{
+			e = EDICT_FROM_AREA(l);
+			if (e->v.absmin[0] <= maxs[0] && e->v.absmin[1] <= maxs[1] && e->v.absmin[2] <= maxs[2] &&
+					e->v.absmax[0] >= mins[0] && e->v.absmax[1] >= mins[1] && e->v.absmax[2] >= mins[2])
+				list[n++] = NUM_FOR_EDICT(e);
+		}
+		if (node->axis == -1)
+			return n;
+		if (maxs[node->axis] >= node->dist)
+		{
+			if (mins[node->axis] <= node->dist)
+				n = SV_AreaEdicts_r (node->children[1], mins, maxs, list, n, max);
+			node = node->children[0];
+		}
+		else
+			node = node->children[1];
+	}
+}
+
+int SV_AreaEdicts (const float *mins, const float *maxs, int *list, int max)
+{
+	return SV_AreaEdicts_r (sv_areanodes, mins, maxs, list, 0, max);
+}
+
 /*
 ===============================================================================
 

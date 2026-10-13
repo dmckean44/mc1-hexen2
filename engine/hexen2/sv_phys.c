@@ -540,8 +540,66 @@ SV_PushMove
 
 ============
 */
+/* Edicts a pusher may move. Instead of walking every edict for each door, platform and
+   rotating brush, take the linked ones whose boxes come within 2 units of the pusher's
+   (from the area tree), the unlinked (SOLID_NOT) ones that are not PUSH, NONE or NOCLIP,
+   listed by SV_Physics at the start of the frame, and any spawned since; in edict order, as the full walk visits them. The push
+   loops keep their own checks. */
+static int	sv_unlinked[MAX_EDICTS];
+static int	sv_nunlinked, sv_unlinked_edicts = 1;
+
+static void SV_ListUnlinked (void)
+{
+	edict_t	*check = NEXT_EDICT(sv.edicts);
+	int	e;
+
+	sv_nunlinked = 0;
+	for (e = 1; e < sv.num_edicts; e++, check = NEXT_EDICT(check))
+	{
+		if (!check->free && !check->area.prev && check->v.movetype != MOVETYPE_PUSH &&
+				check->v.movetype != MOVETYPE_NONE && check->v.movetype != MOVETYPE_NOCLIP)
+			sv_unlinked[sv_nunlinked++] = e;
+	}
+	sv_unlinked_edicts = sv.num_edicts;
+}
+
+static int SV_PushCandidates (edict_t *pusher, int *list)
+{
+	vec3_t	mins, maxs;
+	int	i, j, n, e, t;
+
+	for (i = 0; i < 3; i++)
+	{
+		mins[i] = pusher->v.absmin[i] - 2;
+		maxs[i] = pusher->v.absmax[i] + 2;
+	}
+	n = SV_AreaEdicts (mins, maxs, list, MAX_EDICTS);
+	for (i = 0; i < sv_nunlinked && n < MAX_EDICTS; i++)
+	{
+		if (sv_unlinked[i] < sv.num_edicts)
+			list[n++] = sv_unlinked[i];
+	}
+	for (e = sv_unlinked_edicts; e < sv.num_edicts && n < MAX_EDICTS; e++)
+		list[n++] = e;
+	/* sort, drop duplicates and the world */
+	for (i = 1; i < n; i++)
+	{
+		t = list[i];
+		for (j = i; j > 0 && list[j - 1] > t; j--)
+			list[j] = list[j - 1];
+		list[j] = t;
+	}
+	for (i = j = 0; i < n; i++)
+	{
+		if (list[i] > 0 && (j == 0 || list[j - 1] != list[i]))
+			list[j++] = list[i];
+	}
+	return j;
+}
+
 static void SV_PushMove (edict_t *pusher, float movetime, qboolean update_time)
 {
+	int		cand[MAX_EDICTS], ncand, ci;
 	int			i, e;
 	edict_t		*check, *block;
 	vec3_t		mins, maxs, move;
@@ -574,9 +632,11 @@ static void SV_PushMove (edict_t *pusher, float movetime, qboolean update_time)
 
 	// see if any solid entities are inside the final position
 	num_moved = 0;
-	check = NEXT_EDICT(sv.edicts);
-	for (e = 1; e < sv.num_edicts; e++, check = NEXT_EDICT(check))
+	ncand = SV_PushCandidates (pusher, cand);
+	for (ci = 0; ci < ncand; ci++)
 	{
+		e = cand[ci];
+		check = EDICT_NUM(e);
 		if (check->free)
 			continue;
 		if (check->v.movetype == MOVETYPE_PUSH
@@ -901,6 +961,7 @@ NEW
 */
 static void SV_PushRotate (edict_t *pusher, float movetime)
 {
+	int		cand[MAX_EDICTS], ncand, ci;
 	int			i, e, t;
 	edict_t		*check, *block;
 	vec3_t		move, a, amove, mins, maxs, move2, move3, testmove;
@@ -981,11 +1042,13 @@ static void SV_PushRotate (edict_t *pusher, float movetime)
 
 	// see if any solid entities are inside the final position
 	num_moved = 0;
-	check = NEXT_EDICT(sv.edicts);
+	ncand = SV_PushCandidates (pusher, cand);
 	VectorClear(testmove);	// avoid compiler warning:  testmove is
 				// initialized with case 0 in the switch
-	for (e = 1; e < sv.num_edicts; e++, check = NEXT_EDICT(check))
+	for (ci = 0; ci < ncand; ci++)
 	{
+		e = cand[ci];
+		check = EDICT_NUM(e);
 		if (check->free)
 			continue;
 		if (check->v.movetype == MOVETYPE_PUSH
@@ -2154,6 +2217,7 @@ void SV_Physics (void)
 //
 // treat each object in turn
 //
+	SV_ListUnlinked ();
 	ent = sv.edicts;
 	VectorClear(oldOrigin);	// avoid compiler warning
 	VectorClear(oldAngle);	// avoid compiler warning	
